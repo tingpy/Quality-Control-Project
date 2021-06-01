@@ -25,7 +25,7 @@ def isset(var):
         return False
     return a
     
-data_location = '.'
+data_location = './'
 
 def import_data():
     d1 = pd.read_csv(data_location + 'quality_plastic1.csv',
