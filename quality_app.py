@@ -19,25 +19,17 @@ import numpy as np
 import datetime
 import json
 
-import sys
-sys.path.append("C:\\Users\\acer\\Desktop\\Chimei\\QC data\\app_structure")
-import function
 
+from app_structure import function
 
 # import all pages in the app folder
-import Navi_bar
-import Import_New_Data
-import EDA
-# import Waiting
-import Manage_Data
-import Model 
-import mainpage
-from quality_py import deal, spec, agent, customer
+from app_structure import Navi_bar, Import_New_Data, EDA, Manage_Data, Model, mainpage
+from app_structure.quality_py import deal, spec, agent, customer
 
 
 import os
-os.chdir('C:\\Users\\acer\\Desktop\\Chimei\\QC data')
-local_main = 'C:\\Users\\acer\\Desktop\\Chimei\\QC data'
+os.chdir("./")
+local_main = "./"
 stan_result = []
 
 # needed only if running this as a single page app

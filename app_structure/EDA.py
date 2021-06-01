@@ -18,9 +18,9 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-import function
-from quality_py import deal
-from quality_py import spec
+from . import function
+from .quality_py import deal
+from .quality_py import spec
 
 # still have some problem in the plot
 def create_spec_plot(df, select_spec, table_type, data_type):

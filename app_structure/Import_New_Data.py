@@ -18,10 +18,10 @@ import dash_table
 import pandas as pd
 
 # import all pages in the app folder
-from quality_py import deal
-from quality_py import spec
-from quality_py import customer
-from quality_py import agent
+from .quality_py import deal
+from .quality_py import spec
+from .quality_py import customer
+from .quality_py import agent
 
 
 def parse_contents(contents, filename, date, original_df, df_name):
