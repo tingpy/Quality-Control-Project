@@ -73,7 +73,7 @@ def create_input_block(dic, key, key_cnt):
                                     'index': key_cnt,
                                   },
                                   value= ", ".join(dic[key]),
-                                  style={'width': '40%'}))
+                                  style={'width': '100%'}))
                 ])
 
 def generate_freeze_table(focus_spec, select_dic):
@@ -93,6 +93,7 @@ def create_model_dialogue(dic):
     
     return dbc.Row([dcc.ConfirmDialog(
         id='model_confirm_dialogue',
+        
         message=confirm_str_warning1 + confirm_str_info + confirm_str_warning2)
     ])
     
@@ -136,8 +137,7 @@ material_dropdown =html.Div([
                 children=html.A(
                     children='Skip Model',
                     href='/Manage_Data',
-                    style={'width': '200px', 'height': '50px','margin-right': '7px',
-                           'backgroundColor': 'grey', 'color':'white'}
+                    style={'display': 'inline-block', 'width': '200px', 'margin':'auto'}
                 ),
                 id='skip_model',
                 n_clicks=0),
@@ -315,12 +315,17 @@ intermediate_layers = dbc.Row([
                 dbc.Col(
                     html.Div(id='suggest_variable_cnt',
                              style={'background-color': 'white','color' : 'black',
-                                    'width': '100%','font-weight': '1000'})
+                                    'width': '150%','font-weight': '1000'})
                 )
             ),
         ),            
-        html.Div(id='input_space'),
-        html.Div(id='show_freeze_table')
+        html.Div(id='input_space',
+                 style={'height' : '100%',
+                                    'width': '100%','font-weight': '1000','padding': '30px'}),
+        
+        html.Div(id='show_freeze_table',style={'height' : '100%','padding': '30px'}
+                ),
+       
     ])
 ])
 
@@ -353,7 +358,8 @@ button_collections = html.Div(id='button_collection',
                                                 id='renew_variable_button',
                                                 n_clicks=0,
                                                 style={'width': '200px', 'height': '50px','margin-right': '7px',
-                                                       'backgroundColor': 'grey', 'color':'white'})
+                                                       'backgroundColor': 'grey', 'color':'white'
+                                                      })
                                             ),
                                         dbc.Col(
                                             html.Button(
@@ -361,7 +367,8 @@ button_collections = html.Div(id='button_collection',
                                             id='input_confirm',
                                             n_clicks=0,
                                             style={'width': '200px', 'height': '50px', 'margin-right': '7px',
-                                                   'backgroundColor': 'grey', 'color':'white'}),
+                                                   'backgroundColor': 'grey', 'color':'white'
+                                                   }),
                                         ),
                                     ], align = 'end') 
                                 ]
@@ -377,7 +384,8 @@ button_collections = html.Div(id='button_collection',
                                                 id='unfreeze',
                                                 n_clicks=0,
                                                 style={'width': '200px', 'height': '50px', 'margin-right': '7px',
-                                                       'backgroundColor': 'grey', 'color':'white'}
+                                                       'backgroundColor': 'grey', 'color':'white'
+                                                      }
                                             ),
                                         ),
                                         dbc.Col(
@@ -386,7 +394,8 @@ button_collections = html.Div(id='button_collection',
                                                 id='run_model',
                                                 n_clicks=0,
                                                 style={'width': '200px', 'height': '50px','margin-right': '7px',
-                                                       'backgroundColor': 'grey', 'color':'white'}
+                                                       'backgroundColor': 'grey', 'color':'white'
+                                                      }
                                             ),
                                         )
                                     ])
@@ -402,8 +411,7 @@ button_collections = html.Div(id='button_collection',
                 children=html.A(
                     children='Next',
                     href='/Model',
-                    style={'width': '200px', 'height': '50px','margin-right': '7px',
-                           'backgroundColor': 'grey', 'color':'white'}
+                    style={'display': 'inline-block', 'width': '70px', 'margin':'auto'}
                 ),
                 id='next_page',
                 style={'display': 'none'}    
