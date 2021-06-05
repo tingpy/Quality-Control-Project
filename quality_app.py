@@ -19,12 +19,6 @@ import numpy as np
 import datetime
 import json
 
-<<<<<<< HEAD
-# import sys
-# sys.path.append("C:\\Users\\acer\\Desktop\\Chimei\\QC data\\app_structure")
-=======
-
->>>>>>> 5c2837210fe9402e90ad4ef347bc0726b575c686
 from app_structure import function
 
 # import all pages in the app folder
@@ -34,7 +28,6 @@ from app_structure.quality_py import deal, spec, agent, customer
 
 import os
 os.chdir("./")
-<<<<<<< HEAD
 
 # prepare for the dataframe
 deal = 0
@@ -42,13 +35,7 @@ spec = 0
 agent = 0
 customer = 0
 
-
-import os
-# os.chdir('C:\\Users\\acer\\Desktop\\Chimei\\QC data')
-# local_main = 'C:\\Users\\acer\\Desktop\\Chimei\\QC data'
-=======
 local_main = "./"
->>>>>>> 5c2837210fe9402e90ad4ef347bc0726b575c686
 stan_result = []
 
 # needed only if running this as a single page app

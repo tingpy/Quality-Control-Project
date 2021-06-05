@@ -24,11 +24,10 @@ def isset(var):
     except:
         return False
     return a
-<<<<<<< HEAD
-=======
+
     
 data_location = './'
->>>>>>> 5c2837210fe9402e90ad4ef347bc0726b575c686
+
 
 def import_data(data_location):
     d1 = pd.read_csv(data_location + '\\quality_plastic1.csv',
