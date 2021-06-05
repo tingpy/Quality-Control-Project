@@ -5,10 +5,10 @@ from cx_Freeze import setup, Executable
 options = {
     'build_exe': {
         'includes': [
-            'cx_Logging', 'idna',
+            'cx_Logging', 'idna', 'os'
         ],
         'packages': [
-            'asyncio', 'flask', 'jinja2', 'dash', 'plotly'
+            'asyncio', 'flask', 'jinja2', 'dash', 'plotly', 'pystan', 'scikit_learn'
         ],
         'excludes': ['tkinter']
     }
