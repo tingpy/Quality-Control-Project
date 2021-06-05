@@ -23,8 +23,6 @@ from app_structure import function
 
 # import all pages in the app folder
 from app_structure import Navi_bar, Import_New_Data, EDA, Manage_Data, Model, mainpage
-from app_structure.quality_py import deal, spec, agent, customer
-
 
 import os
 os.chdir("./")
