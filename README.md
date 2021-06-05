@@ -37,7 +37,7 @@ git status
 2. 有更動的東西要把他加入更新追蹤；把所有東西加入追蹤，用 . 代替輸入所有檔案
 
 ```bash 
-git add <example.py>  or  git add . 
+git add <example.py>  or git add . 
 ```
 
 3. 確認本次更改，並記錄目前改動了什麼東西
