@@ -24,15 +24,18 @@ def isset(var):
     except:
         return False
     return a
+<<<<<<< HEAD
+=======
     
 data_location = './'
+>>>>>>> 5c2837210fe9402e90ad4ef347bc0726b575c686
 
-def import_data():
-    d1 = pd.read_csv(data_location + 'quality_plastic1.csv',
+def import_data(data_location):
+    d1 = pd.read_csv(data_location + '\\quality_plastic1.csv',
                  encoding = 'utf-8')
-    d2 = pd.read_csv(data_location + 'quality_plastic2.csv',
+    d2 = pd.read_csv(data_location + '\\quality_plastic2.csv',
                  encoding = 'utf-8')
-    d3 = pd.read_csv(data_location + 'QC20.csv',
+    d3 = pd.read_csv(data_location + '\\QC20.csv',
                  encoding = 'utf-8')
 
     drop_col_name = ['MG 2', 'MG 1', '工場別', '槽/線別', '參考編號']
@@ -55,11 +58,11 @@ def import_data():
     
     ## import deal data
     # 'deal inform' is the dataframe that stores all deal data
-    d1 = pd.read_csv(data_location + 'deal1.csv',
+    d1 = pd.read_csv(data_location + '\\deal1.csv',
                      encoding = 'utf-8')
-    d2 = pd.read_csv(data_location + 'deal2.csv',
+    d2 = pd.read_csv(data_location + '\\deal2.csv',
                      encoding = 'utf-8')
-    d3 = pd.read_csv(data_location + 'deal3.csv',
+    d3 = pd.read_csv(data_location + '\\deal3.csv',
                      encoding = 'utf-8')
     deal_inform = pd.concat([d1, d2, d3])
     
@@ -109,9 +112,9 @@ def import_data():
     spec_inform['material'] = material_brief
     
     # information of intermediate(代理商) and customer name
-    intermediate_df = pd.read_csv(data_location + 'customerID.csv',
+    intermediate_df = pd.read_csv(data_location + '\\customerID.csv',
                                   encoding = 'utf-8')
-    customer_df = pd.read_csv(data_location + 'customer_name.csv',
+    customer_df = pd.read_csv(data_location + '\\customer_name.csv',
                               encoding = 'utf-8')
     
     # extract the useful information at the dataframe

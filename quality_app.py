@@ -19,7 +19,12 @@ import numpy as np
 import datetime
 import json
 
+<<<<<<< HEAD
+# import sys
+# sys.path.append("C:\\Users\\acer\\Desktop\\Chimei\\QC data\\app_structure")
+=======
 
+>>>>>>> 5c2837210fe9402e90ad4ef347bc0726b575c686
 from app_structure import function
 
 # import all pages in the app folder
@@ -29,14 +34,28 @@ from app_structure.quality_py import deal, spec, agent, customer
 
 import os
 os.chdir("./")
+<<<<<<< HEAD
+
+# prepare for the dataframe
+deal = 0
+spec = 0
+agent = 0
+customer = 0
+
+
+import os
+# os.chdir('C:\\Users\\acer\\Desktop\\Chimei\\QC data')
+# local_main = 'C:\\Users\\acer\\Desktop\\Chimei\\QC data'
+=======
 local_main = "./"
+>>>>>>> 5c2837210fe9402e90ad4ef347bc0726b575c686
 stan_result = []
 
 # needed only if running this as a single page app
-# external_stylesheets = ['C:\\Users\\acer\\Desktop\\Chimei\\QC data\\bootstrap.min.css'] # dbc.themes.LUX
+# external_stylesheets = ['C:\\Users\\acer\\Desktop\\Chimei\\QC data\\assets\\bootstrap.min.css'] # dbc.themes.LUX
 
-# app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+# app = dash.Dash(__name__)
 
 def toggle_navbar_collapse(n, is_open):
     if n:
@@ -106,15 +125,68 @@ def display_page(pathname):
         return mainpage.layout
 ###########################################################
         
-######## Callback for Import_New_Data #####################
+######## Callback for mainpage ############################
+@app.callback([Output('loc_info', 'children'),
+               Output('dir_button', 'n_clicks')],
+              [Input('input_loc', 'value'),
+               Input('dir_button', 'n_clicks')])
+
+def show_directory(loc, n_click):
+    print(loc)
+    if n_click > 0:
+        valid = False
+        if 'QC data' in loc:
+            valid = True
+        
+        if valid:
+            children = [
+                dbc.Row(html.P(children = 'Your directory will be set as ' + loc)),
+                dbc.Row(html.P(children = 'App will start to import data, please wait~'))]
+            return children, 1
+        else:
+            return [], 0
+    else:
+        raise PreventUpdate
+
+
+@app.callback([Output('loc_warning', 'displayed'),
+               Output('loc_confirm', 'displayed'),
+               Output('show_next_step', 'style')],
+              [Input('input_loc', 'value'),
+               Input('dir_button', 'n_clicks')])
+
+def show_loc_warning(loc, n_click):
+    if n_click > 0:
+        if 'QC data' in loc:
+            loc_new = loc.replace('\\', '/')
+            os.chdir(loc_new) 
+            
+            global spec, deal, agent, customer
+            spec, deal, agent, customer = function.import_data(loc)
+            return False, False, {'display': 'block'}
+        elif 'QC data' not in loc:
+            return True, False, {'display': 'none'}
+        else:
+            return False, True, {'display': 'none'}
+    else:
+        raise PreventUpdate
     
+
+@app.callback(Output('confirm', 'displayed'),
+              Input('dropdown', 'value'))
+def display_confirm(value):
+    if value == 'Danger!!':
+        return True
+    return False
+    
+######## Callback for Import_New_Data #####################
+
 # import new deal data
 @app.callback(Output('output_deal_inform', 'children'),
               [Input('upload_data_deal', 'contents')],
               [State('upload_data_deal', 'filename'),
                State('upload_data_deal', 'last_modified')])
-def update_output_deal(list_of_contents, list_of_names, list_of_dates,
-                       deal = deal):
+def update_output_deal(list_of_contents, list_of_names, list_of_dates):
 
     if list_of_contents is not None: 
        try:
@@ -133,8 +205,7 @@ def update_output_deal(list_of_contents, list_of_names, list_of_dates,
               [Input('upload_data_spec', 'contents')],
               [State('upload_data_spec', 'filename'),
                State('upload_data_spec', 'last_modified')])
-def update_output_spec(list_of_contents, list_of_names, list_of_dates,
-                       spec = spec):
+def update_output_spec(list_of_contents, list_of_names, list_of_dates):
 
     if list_of_contents is not None: 
         try:
@@ -153,8 +224,7 @@ def update_output_spec(list_of_contents, list_of_names, list_of_dates,
           [Input('upload_data_agent', 'contents')],
           [State('upload_data_agent', 'filename'),
             State('upload_data_agent', 'last_modified')])
-def update_output_agent(list_of_contents, list_of_names, list_of_dates,
-                        agent = agent):
+def update_output_agent(list_of_contents, list_of_names, list_of_dates):
 
     if list_of_contents is not None: 
         try:
@@ -173,8 +243,7 @@ def update_output_agent(list_of_contents, list_of_names, list_of_dates,
           [Input('upload_data_agent', 'contents')],
           [State('upload_data_agent', 'filename'),
             State('upload_data_agent', 'last_modified')])
-def update_output(list_of_contents, list_of_names, list_of_dates,
-                  customer = customer):
+def update_output(list_of_contents, list_of_names, list_of_dates):
 
     if list_of_contents is not None: 
         try:
@@ -194,14 +263,13 @@ def update_output(list_of_contents, list_of_names, list_of_dates,
 @app.callback(Output('intermediate_layer5', 'data'),
               Input('material_dropdown', 'value'))
 
-def create_folder(select_material, local_main = local_main):
+def create_folder(select_material):
     try:
-        os.chdir(local_main + '/' + select_material)
+        os.chdir('./' + select_material)
     except:
-        os.mkdir(local_main + '/' + select_material)
-        os.chdir(local_main + '/' + select_material)
-
-    print(select_material)    
+        os.mkdir('./' + select_material)
+        os.chdir('./' + select_material)
+  
     return select_material
 
 # material dropdown
@@ -213,7 +281,7 @@ def create_folder(select_material, local_main = local_main):
               [Input('material_dropdown', 'value'),
                Input('material_slider', 'value')])
 
-def update_spec_info(select_material, select_date, spec = spec):
+def update_spec_info(select_material, select_date):
     df = spec[spec['material'] == select_material]
     unique_spec = df['spec name'].unique()
     
@@ -255,8 +323,7 @@ def update_spec_info(select_material, select_date, spec = spec):
                 Input('table_type', 'value'),
                 Input('data_type', 'value')])
 
-def update_spec_graph(select_material, select_spec, table_type, data_type, 
-                      spec = spec):
+def update_spec_graph(select_material, select_spec, table_type, data_type):
 
     df = spec[spec['material'] == select_material]
     
@@ -291,7 +358,7 @@ max_var_cnt = 3
                 Input('confirm_spec_button', 'n_clicks')])
 
 def update_input_var(select_material, focus_spec, exist_spec, n_clicks,
-                      spec = spec, max_var_cnt = max_var_cnt):
+                      max_var_cnt = max_var_cnt):
     
     if n_clicks > 0:
         df = spec[spec['material'] == select_material]
@@ -364,7 +431,7 @@ def renew_show_input_var(renew_click, names, values,
 # warning for freezing renew_input_variable button    
 @app.callback(Output('freeze_confirm', 'displayed'),
               Input('input_confirm', 'n_clicks'))
-def display_confirm(n_click):
+def display_confirm_table(n_click):
     if n_click > 0:
         return True
     else:
@@ -402,7 +469,7 @@ def display_and_show_table(confirm_click, freeze_click, unfreeze_click,
 
 @app.callback(Output('model_confirm_dialogue', 'displayed'),
               Input('run_model', 'n_clicks'))
-def display_confirm(model_click):
+def display_confirm_model(model_click):
     if model_click > 0:
         return True
     return False
@@ -415,8 +482,7 @@ def display_confirm(model_click):
                Input('intermediate_layer3', 'data')],
                prevent_initial_call = True)
 
-def update_stan_name_and_dialogue(model_click, select_material, dic_name,
-                                  spec=spec, deal=deal):
+def update_stan_name_and_dialogue(model_click, select_material, dic_name):
     
     if model_click > 0:
         with open(dic_name, 'r') as j:
@@ -449,8 +515,7 @@ def update_stan_name_and_dialogue(model_click, select_material, dic_name,
                Input('run_model', 'n_clicks'),
                Input('model_confirm_dialogue', 'submit_n_clicks')])
 
-def update_run_model(select_material, dic_name, stan_info, model_click, dialogue_click,
-                     spec = spec, deal = deal):
+def update_run_model(select_material, dic_name, stan_info, model_click, dialogue_click):
     
     if model_click > 0 and dialogue_click is not None:
         print('run model')
@@ -485,10 +550,9 @@ def update_run_model(select_material, dic_name, stan_info, model_click, dialogue
 @app.callback(Output('info_card', 'children'),
               Input('intermediate_layer5', 'data'))
 
-def update_info_card(select_material,
-                     local_main = local_main):
+def update_info_card(select_material):
     
-    mypath = local_main + '/' + select_material
+    mypath = './' + select_material
     dic_list = function.find_usable_file(mypath)
     
     if len(dic_list) == 0:
@@ -565,10 +629,10 @@ def renew_import_confirm_href(choose_value):
               prevent_initial_call = True)
 
 def execute_and_move(choose_value, delete_value, recover_value, confirm_click,
-                      select_material, local_main = local_main):
+                      select_material):
     
     if confirm_click > 0:
-        mypath = local_main + '/' + select_material
+        mypath = './' + select_material
         os.chdir(mypath)
         
         if sum(choose_value) == 0:
@@ -634,8 +698,6 @@ def update_input_df(info1, info2, select_material):
                                         {'name':i, 'id':i} for i in reserve_spec],
                                     data=[data_dic],
                                     editable=True)
-    # global dic
-    # dic = temp_dic
     
     return children, temp_dic
 
@@ -671,8 +733,7 @@ def update_input_spec(submit_click, row, column, dic):
                 Input('intermediate_layer5', 'data')])
 
 def update_recommendation_system(submit_click, cut_off, info_dic,
-                                 score_dic, select_material,
-                                  customer = customer):
+                                 score_dic, select_material):
 
     if submit_click > 0:
         for i in score_dic.keys():
