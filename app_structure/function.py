@@ -10,7 +10,8 @@ import pandas as pd
 import numpy as np
 from sklearn import preprocessing
 from scipy.stats import pearsonr
-import pystan
+# from pystan import StanModel
+#import pystan
 
 import os 
 from os import listdir
@@ -24,10 +25,6 @@ def isset(var):
     except:
         return False
     return a
-
-    
-data_location = './'
-
 
 def import_data(data_location):
     d1 = pd.read_csv(data_location + '\\quality_plastic1.csv',
@@ -374,62 +371,60 @@ model{
 }
 '''
 
-def run_stan(concat_df, dic,
-              quality_control = quality_control):
 # def run_stan(concat_df, dic,
-#               quality_control = quality_control,
-#               posterior = posterior):
-    iter_cnt = 10000
-    output_cnt = 2500
+#               quality_control = quality_control):
+#     iter_cnt = 10000
+#     output_cnt = 2500
     
-    reserve_spec = []
-    for i in list(dic.keys()):
-        reserve_spec.append(i)
-        if len(dic[i]) > 0:
-            reserve_spec = reserve_spec + dic[i]
+#     reserve_spec = []
+#     for i in list(dic.keys()):
+#         reserve_spec.append(i)
+#         if len(dic[i]) > 0:
+#             reserve_spec = reserve_spec + dic[i]
     
-    buyer_name = []
-    for i in concat_df['buyer'].values:
-        buyer_name.append(str(i))
-    concat_df['buyer'] = buyer_name
+#     buyer_name = []
+#     for i in concat_df['buyer'].values:
+#         buyer_name.append(str(i))
+#     concat_df['buyer'] = buyer_name
     
-    posterior = pystan.StanModel(model_code=quality_control)
+#     # posterior = pystan.StanModel(model_code=quality_control)
+#     posterior = StanModel(model_code=quality_control)
     
-    unique_buyer = concat_df['buyer'].unique()
-    customer_para = {}
-    purchase_cnt = []
-    customer_name_list = []
-##################################################################
-    cnt1 = 0
-##################################################################
-    for i in unique_buyer:
-        temp_df = concat_df[concat_df['buyer'] == i]
+#     unique_buyer = concat_df['buyer'].unique()
+#     customer_para = {}
+#     purchase_cnt = []
+#     customer_name_list = []
+# ##################################################################
+#     cnt1 = 0
+# ##################################################################
+#     for i in unique_buyer:
+#         temp_df = concat_df[concat_df['buyer'] == i]
         
-        print(len(temp_df))
-        print(i)
-        purchase_cnt.append(len(temp_df))
-        customer_name_list.append(i)
+#         print(len(temp_df))
+#         print(i)
+#         purchase_cnt.append(len(temp_df))
+#         customer_name_list.append(i)
         
-        stan_data = {"Nt": len(temp_df),
-                     "Ns": len(reserve_spec),
-                     "spec": temp_df[reserve_spec]}
-        fit = posterior.vb(data = stan_data, 
-                           iter = iter_cnt,
-                           output_samples = output_cnt)
+#         stan_data = {"Nt": len(temp_df),
+#                       "Ns": len(reserve_spec),
+#                       "spec": temp_df[reserve_spec]}
+#         fit = posterior.vb(data = stan_data, 
+#                             iter = iter_cnt,
+#                             output_samples = output_cnt)
         
-        para_dic = {}
-        for j in range(0, len(fit['sampler_param_names'])):
-            para_dic[fit['sampler_param_names'][j]] = fit['sampler_params'][j]
-        customer_para[i] = para_dic
-#####################################################################3     
-        cnt1 = cnt1 + 1
-        if cnt1 == 10:
-            break
-##########################################################################33   
-    purchase_info_dic = {'customer': customer_name_list,
-                         'purchase_cnt': purchase_cnt}
+#         para_dic = {}
+#         for j in range(0, len(fit['sampler_param_names'])):
+#             para_dic[fit['sampler_param_names'][j]] = fit['sampler_params'][j]
+#         customer_para[i] = para_dic
+# #####################################################################3     
+#         cnt1 = cnt1 + 1
+#         if cnt1 == 10:
+#             break
+# ##########################################################################33   
+#     purchase_info_dic = {'customer': customer_name_list,
+#                           'purchase_cnt': purchase_cnt}
     
-    return customer_para, purchase_info_dic
+#     return customer_para, purchase_info_dic
 
 def create_info_dic(select_material, spec_last, deal_last, dic):
     now = datetime.datetime.now()
@@ -476,8 +471,7 @@ def delete_and_rename_file(mypath, delete_value, recover_value,
     sub3 = '.json'
     
     reserve_file = []
-    print(delete_value)
-    print(recover_value)
+
     for i in range(len(delete_value)):
         if (delete_value[i] - recover_value[i]) > 0 and choose_value[i] == 0:
             try:
@@ -490,11 +484,9 @@ def delete_and_rename_file(mypath, delete_value, recover_value,
             except:
                 print(sub2 + str(i+1) + sub3 + ''' doesn't exist!''')
         else:
-            print(i)
             reserve_file.append(i)
     
     for j in range(len(reserve_file)):
-        print(mypath + '/' + sub1 + str(reserve_file[j]+1) + sub3)
         os.rename(mypath + '/' + sub1 + str(reserve_file[j]+1) + sub3,
                   mypath + '/' + sub1 + str(j+1) + sub3)
         os.rename(mypath + '/' + sub2 + str(reserve_file[j]+1) + sub3,
@@ -614,15 +606,13 @@ def cust_to_class(cut_off, purchase_info):
                       'Sixth', 'Seventh']
         
     purchase_cnt = purchase_info['purchase_cnt']
-    print(type(purchase_cnt))
     name_list = purchase_info['customer']
     
     cut_off = [0] + cut_off + [1]
     cut_off.reverse()
 
     quan_cut_off = [round( np.quantile(purchase_cnt, cut_off[i]) ) for i in range(class_cnt+1)]
-    #purchase_cnt = np.array(purchase_cnt)
-    print(quan_cut_off)
+    purchase_cnt = np.array(purchase_cnt)
     cust_class_dic = {}
     for i in range(class_cnt):
         # two different quantile should not have same cut point
@@ -644,7 +634,7 @@ def cust_to_class(cut_off, purchase_info):
 def cust_rating(cust_dic, score, choose_cnt, type, customer):
     cust_rating_dic = {}
     score_dic = {}
-    print(score)
+   
     if type:
         reserve = []
         for i in cust_dic.keys(): reserve = reserve + cust_dic[i]

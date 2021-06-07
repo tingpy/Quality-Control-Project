@@ -16,16 +16,20 @@ import dash_table
 
 import pandas as pd
 import numpy as np
-import datetime
+from datetime import datetime
 import json
 
+# import sys
+# sys.path.append("C:\\Users\\acer\\Desktop\\Chimei\\QC data\\app_structure")
 from app_structure import function
 
 # import all pages in the app folder
 from app_structure import Navi_bar, Import_New_Data, EDA, Manage_Data, Model, mainpage
 
+
 import os
 os.chdir("./")
+# os.chdir("C:/Users/acer/Desktop/Chimei/QC data")
 
 # prepare for the dataframe
 deal = 0
@@ -33,11 +37,14 @@ spec = 0
 agent = 0
 customer = 0
 
-local_main = "./"
+
+import os
+# os.chdir('C:\\Users\\acer\\Desktop\\Chimei\\QC data')
+# local_main = 'C:\\Users\\acer\\Desktop\\Chimei\\QC data'
 stan_result = []
 
 # needed only if running this as a single page app
-# external_stylesheets = ['C:\\Users\\acer\\Desktop\\Chimei\\QC data\\assets\\bootstrap.min.css'] # dbc.themes.LUX
+external_stylesheets = ['.\\assets\\bootstrap.min.css'] # dbc.themes.LUX
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 # app = dash.Dash(__name__)
@@ -67,6 +74,10 @@ app.layout = html.Div([
                   dcc.Store(id='intermediate_layer4',
                             storage_type='session'),
                   dcc.Store(id='intermediate_layer5',
+                            storage_type='session'),
+                  dcc.Store(id='unique_material',
+                            storage_type='session'),
+                  dcc.Store(id='main_location',
                             storage_type='session'),
                   dcc.Store(id='info_store1',
                             storage_type='session'),
@@ -136,7 +147,9 @@ def show_directory(loc, n_click):
 
 @app.callback([Output('loc_warning', 'displayed'),
                Output('loc_confirm', 'displayed'),
-               Output('show_next_step', 'style')],
+               Output('show_next_step', 'style'),
+               Output('unique_material', 'data'),
+               Output('main_location', 'data')],
               [Input('input_loc', 'value'),
                Input('dir_button', 'n_clicks')])
 
@@ -148,23 +161,31 @@ def show_loc_warning(loc, n_click):
             
             global spec, deal, agent, customer
             spec, deal, agent, customer = function.import_data(loc)
-            return False, False, {'display': 'block'}
+            
+            option_for_dropdown = [{'label': i, 'value': i} for i in deal['material'].unique()]
+            return False, False, {'display': 'block'}, option_for_dropdown, loc_new
         elif 'QC data' not in loc:
-            return True, False, {'display': 'none'}
-        else:
-            return False, True, {'display': 'none'}
+            return True, False, {'display': 'none'}, None, None
+        else: 
+            return False, True, {'display': 'none'}, None, None
     else:
         raise PreventUpdate
     
-
-@app.callback(Output('confirm', 'displayed'),
-              Input('dropdown', 'value'))
-def display_confirm(value):
-    if value == 'Danger!!':
-        return True
-    return False
-    
 ######## Callback for Import_New_Data #####################
+
+# show data table
+@app.callback([Output('deal_tab', 'children'),
+               Output('spec_tab', 'children'),
+               Output('agent_tab', 'children'),
+               Output('customer_tab', 'children')],
+              Input('unique_material', 'data'))
+def show_data_table(input):
+    deal_children = Import_New_Data.tab_content('deal', deal)
+    spec_children = Import_New_Data.tab_content('spec', spec)
+    agent_children = Import_New_Data.tab_content('agent', agent)
+    customer_children = Import_New_Data.tab_content('customer', customer)
+    
+    return deal_children, spec_children, agent_children, customer_children
 
 # import new deal data
 @app.callback(Output('output_deal_inform', 'children'),
@@ -182,7 +203,7 @@ def update_output_deal(list_of_contents, list_of_names, list_of_dates):
            children = [
            Import_New_Data.parse_contents(c, n, d, deal, 'deal') for c, n, d in
            zip(list_of_contents, list_of_names, list_of_dates)]
-            
+
     return children
 
 # import new spec data
@@ -245,15 +266,23 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
 
 ######## Callback for EDA #################################
 # create a new folder for each material and change directory
-@app.callback(Output('intermediate_layer5', 'data'),
-              Input('material_dropdown', 'value'))
+@app.callback(Output('material_dropdown', 'options'),
+              Input('unique_material', 'data'))
 
-def create_folder(select_material):
+def update_material_option(material_list):
+    return material_list
+
+
+@app.callback(Output('intermediate_layer5', 'data'),
+              [Input('material_dropdown', 'value'),
+               Input('main_location', 'data')])
+
+def create_folder(select_material, loc):
     try:
-        os.chdir('./' + select_material)
+        os.chdir(loc + '/' + select_material)
     except:
-        os.mkdir('./' + select_material)
-        os.chdir('./' + select_material)
+        os.mkdir(loc + '/' + select_material)
+        os.chdir(loc + '/' + select_material)
   
     return select_material
 
@@ -279,9 +308,9 @@ def update_spec_info(select_material, select_date):
     
     spec_df = spec_df.sort_values('Last Day', ascending=False)
     
-    end_date = datetime.datetime(select_date[1]+1, 1, 1)
+    end_date = datetime(select_date[1]+1, 1, 1)
     end_bool = (spec_df['Last Day'] < end_date).values
-    begin_date = datetime.datetime(select_date[0]-1, 12, 31)
+    begin_date = datetime(select_date[0]-1, 12, 31)
     begin_bool = np.logical_and((spec_df['First Day'] < begin_date).values,
                                 (spec_df['Last Day'] > begin_date).values)
     
@@ -533,11 +562,12 @@ def update_run_model(select_material, dic_name, stan_info, model_click, dialogue
 
 ######## Callback for Manage_Data #########################
 @app.callback(Output('info_card', 'children'),
-              Input('intermediate_layer5', 'data'))
+              [Input('intermediate_layer5', 'data'),
+               Input('main_location', 'data')])
 
-def update_info_card(select_material):
+def update_info_card(select_material, loc):
     
-    mypath = './' + select_material
+    mypath = loc + '/' + select_material
     dic_list = function.find_usable_file(mypath)
     
     if len(dic_list) == 0:
@@ -610,14 +640,15 @@ def renew_import_confirm_href(choose_value):
                 Input({'type': 'dynamic-delete-button', 'index': ALL}, 'n_clicks'),
                 Input({'type': 'dynamic-recover-button', 'index': ALL}, 'n_clicks'),
                 Input('confirm_import', 'n_clicks'),
-                Input('intermediate_layer5', 'data')],
+                Input('intermediate_layer5', 'data'),
+                Input('main_location', 'data')],
               prevent_initial_call = True)
 
 def execute_and_move(choose_value, delete_value, recover_value, confirm_click,
-                      select_material):
+                      select_material, loc):
     
     if confirm_click > 0:
-        mypath = './' + select_material
+        mypath = loc + '/' + select_material
         os.chdir(mypath)
         
         if sum(choose_value) == 0:

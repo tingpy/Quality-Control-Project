@@ -6,9 +6,7 @@ Created on Wed Mar 17 15:10:29 2021
 """
 
 
-import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 
 

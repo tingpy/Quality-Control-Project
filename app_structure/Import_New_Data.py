@@ -6,9 +6,8 @@ Created on Wed Mar 17 15:13:03 2021
 """
 
 import base64
-import datetime
+from datetime import datetime
 import io
-import dash
 import dash_core_components as dcc
 from dash.dependencies import Input, Output, State
 import dash_html_components as html
@@ -17,11 +16,6 @@ import dash_table
 
 import pandas as pd
 
-# import all pages in the app folder
-from .quality_py import deal
-from .quality_py import spec
-from .quality_py import customer
-from .quality_py import agent
 
 
 def parse_contents(contents, filename, date, original_df, df_name):
@@ -62,7 +56,7 @@ def parse_contents(contents, filename, date, original_df, df_name):
     return html.Div([
         html.H5(filename),
         html.H6('Upload Time:' + 
-                datetime.datetime.fromtimestamp(date).strftime("%Y-%m-%d %H:%M:%S")),
+                datetime.fromtimestamp(date).strftime("%Y-%m-%d %H:%M:%S")),
     
         dash_table.DataTable(
             data=df.tail(10).to_dict('records'),
@@ -140,18 +134,14 @@ layout = dbc.Container([
               html.Div(id='control-tab', className='control-tabs', children=[
                  dcc.Tabs(id="import_data_tab", value='deal',
                           children=[
-                              dcc.Tab(label = 'Deal Data', value='deal',
-                                      children = tab_content(which_tab = 'deal',
-                                                             df = eval('deal'))),
-                               dcc.Tab(label = 'Spec Data', value='spec',
-                                        children = tab_content(which_tab = 'spec',
-                                                               df = eval('spec'))),
-                               dcc.Tab(label = 'Customer Data', value='customer',
-                                        children = tab_content(which_tab = 'customer',
-                                                               df = eval('customer'))),
-                               dcc.Tab(label = 'Agent Data', value='agent',
-                                        children = tab_content(which_tab = 'agent',
-                                                               df = eval('agent'))),
+                              dcc.Tab(id='deal_tab',
+                                      label = 'Deal Data', value='deal'),
+                               dcc.Tab(id='spec_tab',
+                                       label = 'Spec Data', value='spec'),
+                               dcc.Tab(id='customer_tab',
+                                       label = 'Customer Data', value='customer'),
+                               dcc.Tab(id='agent_tab',
+                                       label = 'Agent Data', value='agent'),
                          ]
                      )]
             )], style = {'display': 'inline-block', 'width': '75%'})

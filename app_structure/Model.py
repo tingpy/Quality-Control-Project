@@ -7,19 +7,14 @@ Created on Wed Mar 17 15:13:54 2021
 
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
 import dash_table
-# from dash_extensions import Download
-# from dash_extensions.snippets import send_data_frame
 
-import plotly.figure_factory as ff
-import plotly.graph_objects as go
-import plotly.express as px
+# import plotly.figure_factory as ff
+from plotly.figure_factory import create_distplot
+from plotly.graph_objects import Figure, Scatter
 
-import pandas as pd
 import numpy as np
-from datetime import datetime
 
 
 def dic_to_table(dic, choose_cnt):
@@ -66,9 +61,9 @@ def figure_generate(dic, rate, select_material, choose_cnt):
                     for i in range(choose_cnt)]
             label = list(rate['real name'])[0: choose_cnt]
             
-            graph = ff.create_distplot(data, 
-                                       label, 
-                                       show_hist=False)
+            graph = create_distplot(data, 
+                                    label, 
+                                    show_hist=False)
             graph.update_layout(title_text = select_material+' focus on '+spec_name[0],
                                 xaxis_title = spec_name[0] + sub,
                                 yaxis_title = 'Probability')  
@@ -93,17 +88,17 @@ def figure_generate(dic, rate, select_material, choose_cnt):
                                                         rank=row['rank']))
             size = [i**0.5 for i in rate['purchase cnt']]
             color = rate['rank']
-            graph = go.Figure(data=[go.Scatter(
-                                x = x, y = y,
-                                text = text,
-                                mode='markers',
-                                marker=dict(size = size,
-                                            color = color,
-                                            showscale=True,
-                                            sizemode='area',
-                                            sizeref=2.*max(size)/(40.**2),
-                                            sizemin=4)
-                            )])
+            graph = Figure(data=[Scatter(
+                            x = x, y = y,
+                            text = text,
+                            mode='markers',
+                            marker=dict(size = size,
+                                        color = color,
+                                        showscale=True,
+                                        sizemode='area',
+                                        sizeref=2.*max(size)/(40.**2),
+                                        sizemin=4)
+                        )])
             # graph = go.Scatter(rate,
             #                     x = spec_name[0]+sub,
             #                     y = spec_name[1]+sub,

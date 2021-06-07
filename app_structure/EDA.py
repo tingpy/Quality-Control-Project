@@ -7,20 +7,19 @@ Created on Wed Mar 17 15:13:32 2021
 
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
-import dash_table
-import plotly.figure_factory as ff
-import plotly.express as px
-from plotly.offline import plot
+# import plotly.figure_factory as ff
+from plotly.figure_factory import create_distplot
+# import plotly.express as px
+from plotly.express import scatter
+# from plotly.offline import plot
 
 import pandas as pd
-import numpy as np
 from datetime import datetime
 
-from . import function
-from .quality_py import deal
-from .quality_py import spec
+from app_structure import function
+# from quality_app import deal
+# from quality_app import spec
 
 # still have some problem in the plot
 def create_spec_plot(df, select_spec, table_type, data_type):
@@ -37,12 +36,12 @@ def create_spec_plot(df, select_spec, table_type, data_type):
         hist_data = [plot_dic[i] for i in plot_dic.keys()]
         group_label = [i for i in plot_dic.keys()]
         
-        return ff.create_distplot(hist_data, group_label, bin_size=.2)
+        return create_distplot(hist_data, group_label, bin_size=.2)
         
     else:
         plot_df = function.LOT_based_df(df, select_spec, data_type)
         
-        return px.scatter(plot_df, 
+        return scatter(plot_df, 
                           x=plot_df.columns[2], # remove 'LOTNO' and 'date'
                           y=plot_df.columns[3])
 
@@ -119,15 +118,13 @@ material_dropdown =html.Div([
         dbc.Col(
             dcc.Dropdown(
                 id='material_dropdown',
-                options=[{'label': i, 'value': i} for i in deal['material'].unique()],
                 value='765AXXX',
                 persistence=True,
                 persistence_type='session',
                 style={'background-color': 'white','color' : 'black' ,
                        'width': '100%','font-weight': '1000'},
             ),
-            className='mb-4'
-        )
+            className='mb-4')
     ]),
     
     dbc.Row([
