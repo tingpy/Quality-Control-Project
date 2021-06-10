@@ -16,32 +16,39 @@ import dash_table
 
 import pandas as pd
 import numpy as np
-import datetime
+from datetime import datetime
 import json
 
-import sys
-sys.path.append("C:\\Users\\acer\\Desktop\\Chimei\\QC data\\app_structure")
-import function
-
+# import sys
+# sys.path.append("C:\\Users\\acer\\Desktop\\Chimei\\QC data\\app_structure")
+from app_structure import function
 
 # import all pages in the app folder
-import Navi_bar
-import Import_New_Data
-import EDA
-# import Waiting
-import Manage_Data
-import Model 
-import mainpage
-from quality_py import deal, spec, agent, customer
+from app_structure import Navi_bar, Import_New_Data, EDA, Manage_Data, Model, mainpage
+
+
+import os
+os.chdir("./")
+# os.chdir("C:/Users/acer/Desktop/Chimei/QC data")
+
+# prepare for the dataframe
+deal = 0
+spec = 0
+agent = 0
+customer = 0
+import_deal = 0
+import_spec = 0
+import_agent = 0
+import_customer = 0
 
 
 import os
 os.chdir('C:\\Users\\acer\\Desktop\\Chimei\\QC data')
-local_main = 'C:\\Users\\acer\\Desktop\\Chimei\\QC data'
+# local_main = 'C:\\Users\\acer\\Desktop\\Chimei\\QC data'
 stan_result = []
 
 # needed only if running this as a single page app
-# external_stylesheets = ['C:\\Users\\acer\\Desktop\\Chimei\\QC data\\bootstrap.min.css'] # dbc.themes.LUX
+# external_stylesheets = ['.\\assets\\bootstrap.min.css'] # dbc.themes.LUX
 
 # app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 app = dash.Dash(__name__)
@@ -71,6 +78,10 @@ app.layout = html.Div([
                   dcc.Store(id='intermediate_layer4',
                             storage_type='session'),
                   dcc.Store(id='intermediate_layer5',
+                            storage_type='session'),
+                  dcc.Store(id='unique_material',
+                            storage_type='session'),
+                  dcc.Store(id='main_location',
                             storage_type='session'),
                   dcc.Store(id='info_store1',
                             storage_type='session'),
@@ -114,16 +125,83 @@ def display_page(pathname):
         return mainpage.layout
 ###########################################################
         
-######## Callback for Import_New_Data #####################
+######## Callback for mainpage ############################
+@app.callback([Output('loc_info', 'children'),
+               Output('dir_button', 'n_clicks')],
+              [Input('input_loc', 'value'),
+               Input('dir_button', 'n_clicks')])
+
+def show_directory(loc, n_click):
+    if n_click > 0:
+        valid = False
+        if 'QC data' in loc:
+            valid = True
+        
+        if valid:
+            children = [
+                dbc.Row(html.P(children = 'Your directory will be set as ' + loc)),
+                dbc.Row(html.P(children = 'App will start to import data, please wait~'))]
+            return children, 1
+        else:
+            return [], 0
+    else:
+        raise PreventUpdate
+
+
+@app.callback([Output('loc_warning', 'displayed'),
+               Output('loc_confirm', 'displayed'),
+               Output('show_next_step', 'style'),
+               Output('unique_material', 'data'),
+               Output('main_location', 'data')],
+              [Input('input_loc', 'value'),
+               Input('dir_button', 'n_clicks')])
+
+def show_loc_warning(loc, n_click):
+    if n_click > 0:
+        if 'QC data' in loc:
+            loc_new = loc.replace('\\', '/')
+            os.chdir(loc_new) 
+            
+            global spec, deal, agent, customer
+            spec, deal, agent, customer = function.import_data(loc)
+            
+            option_for_dropdown = [{'label': i, 'value': i} for i in deal['material'].unique()]
+            return False, False, {'display': 'block'}, option_for_dropdown, loc_new
+        elif 'QC data' not in loc:
+            return True, False, {'display': 'none'}, None, None
+        else: 
+            return False, True, {'display': 'none'}, None, None
+    else:
+        raise PreventUpdate
     
+######## Callback for Import_New_Data #####################
+
+# show data table
+@app.callback([Output('deal_tab', 'children'),
+               Output('spec_tab', 'children'),
+               Output('agent_tab', 'children'),
+               Output('customer_tab', 'children')],
+              Input('unique_material', 'data'))
+def show_data_table(value):
+    print('we start from here')
+
+    deal_children = Import_New_Data.tab_content('deal', deal)
+    spec_children = Import_New_Data.tab_content('spec', spec)
+    agent_children = Import_New_Data.tab_content('agent', agent)
+    customer_children = Import_New_Data.tab_content('customer', customer)
+    
+    return deal_children, spec_children, agent_children, customer_children
+
 # import new deal data
 @app.callback(Output('output_deal_inform', 'children'),
               [Input('upload_data_deal', 'contents')],
               [State('upload_data_deal', 'filename'),
                State('upload_data_deal', 'last_modified')])
-def update_output_deal(list_of_contents, list_of_names, list_of_dates,
-                       deal = deal):
-
+def update_output_deal(list_of_contents, list_of_names, list_of_dates):
+    children = [dbc.Row(html.H4('The example csv format:')),
+                dbc.Row(dash_table.DataTable(
+                        data=deal.tail(10).to_dict('records'),
+                        columns=[{'name': i, 'id': i} for i in deal.columns]))]
     if list_of_contents is not None: 
        try:
            children = [
@@ -133,7 +211,7 @@ def update_output_deal(list_of_contents, list_of_names, list_of_dates,
            children = [
            Import_New_Data.parse_contents(c, n, d, deal, 'deal') for c, n, d in
            zip(list_of_contents, list_of_names, list_of_dates)]
-            
+
     return children
 
 # import new spec data
@@ -141,9 +219,11 @@ def update_output_deal(list_of_contents, list_of_names, list_of_dates,
               [Input('upload_data_spec', 'contents')],
               [State('upload_data_spec', 'filename'),
                State('upload_data_spec', 'last_modified')])
-def update_output_spec(list_of_contents, list_of_names, list_of_dates,
-                       spec = spec):
-
+def update_output_spec(list_of_contents, list_of_names, list_of_dates):
+    children = [dbc.Row(html.H4('The example csv format:')),
+                dbc.Row(dash_table.DataTable(
+                        data=spec.tail(10).to_dict('records'),
+                        columns=[{'name': i, 'id': i} for i in spec.columns]))]
     if list_of_contents is not None: 
         try:
             children = [
@@ -161,29 +241,33 @@ def update_output_spec(list_of_contents, list_of_names, list_of_dates,
           [Input('upload_data_agent', 'contents')],
           [State('upload_data_agent', 'filename'),
             State('upload_data_agent', 'last_modified')])
-def update_output_agent(list_of_contents, list_of_names, list_of_dates,
-                        agent = agent):
-
+def update_output_agent(list_of_contents, list_of_names, list_of_dates):
+    children = [dbc.Row(html.H4('The example csv format:')),
+                dbc.Row(dash_table.DataTable(
+                        data=agent.tail(10).to_dict('records'),
+                        columns=[{'name': i, 'id': i} for i in agent.columns]))]
     if list_of_contents is not None: 
         try:
             children = [
-            Import_New_Data.parse_contents(c, n, d, spec, 'agent') for c, n, d in
+            Import_New_Data.parse_contents(c, n, d, agent, 'agent') for c, n, d in
             zip([list_of_contents], [list_of_names], [list_of_dates])]
         except:
             children = [
-            Import_New_Data.parse_contents(c, n, d, spec, 'agent') for c, n, d in
+            Import_New_Data.parse_contents(c, n, d, agent, 'agent') for c, n, d in
             zip(list_of_contents, list_of_names, list_of_dates)]
             
     return children
 
 # import new customer data
 @app.callback(Output('output_customer_inform', 'children'),
-          [Input('upload_data_agent', 'contents')],
-          [State('upload_data_agent', 'filename'),
-            State('upload_data_agent', 'last_modified')])
-def update_output(list_of_contents, list_of_names, list_of_dates,
-                  customer = customer):
-
+          [Input('upload_data_customer', 'contents')],
+          [State('upload_data_customer', 'filename'),
+            State('upload_data_customer', 'last_modified')])
+def update_output(list_of_contents, list_of_names, list_of_dates):
+    children = [dbc.Row(html.H4('The example csv format:')),
+                dbc.Row(dash_table.DataTable(
+                        data=customer.tail(10).to_dict('records'),
+                        columns=[{'name': i, 'id': i} for i in customer.columns]))]
     if list_of_contents is not None: 
         try:
             children = [
@@ -195,21 +279,49 @@ def update_output(list_of_contents, list_of_names, list_of_dates,
             zip(list_of_contents, list_of_names, list_of_dates)]
             
     return children
+
+for i in ['deal', 'spec', 'agent', 'customer']:
+    @app.callback([Output(i + '_concat_df_button', 'n_clicks'),
+                    Output(i + '_concat_table', 'children'),
+                    Output(i + '_table_div', 'style')],
+                  [Input(i + '_concat_df_button', 'n_clicks')])
+    
+    def update_tables(n_clicks):
+        if n_clicks > 0:
+            globals()[i] = pd.concat([eval(i), eval('import_' + i)], axis=0)
+            
+            children = [
+                dbc.Row(dash_table.DataTable(
+                        data=eval(i + ".tail(10)").to_dict('records'),
+                        columns=[{'name':j, 'id':j} for j in eval(i + '.columns')]
+                    ))]
+            
+            return 0, children, {'display': 'block'}
+        else:
+            raise PreventUpdate
+        
 ###########################################################
 
 ######## Callback for EDA #################################
 # create a new folder for each material and change directory
+@app.callback(Output('material_dropdown', 'options'),
+              Input('unique_material', 'data'))
+
+def update_material_option(material_list):
+    return material_list
+
+
 @app.callback(Output('intermediate_layer5', 'data'),
-              Input('material_dropdown', 'value'))
+              [Input('material_dropdown', 'value'),
+               Input('main_location', 'data')])
 
-def create_folder(select_material, local_main = local_main):
+def create_folder(select_material, loc):
     try:
-        os.chdir(local_main + '/' + select_material)
+        os.chdir(loc + '/' + select_material)
     except:
-        os.mkdir(local_main + '/' + select_material)
-        os.chdir(local_main + '/' + select_material)
-
-    print(select_material)    
+        os.mkdir(loc + '/' + select_material)
+        os.chdir(loc + '/' + select_material)
+  
     return select_material
 
 # material dropdown
@@ -221,7 +333,7 @@ def create_folder(select_material, local_main = local_main):
               [Input('material_dropdown', 'value'),
                Input('material_slider', 'value')])
 
-def update_spec_info(select_material, select_date, spec = spec):
+def update_spec_info(select_material, select_date):
     df = spec[spec['material'] == select_material]
     unique_spec = df['spec name'].unique()
     
@@ -234,9 +346,9 @@ def update_spec_info(select_material, select_date, spec = spec):
     
     spec_df = spec_df.sort_values('Last Day', ascending=False)
     
-    end_date = datetime.datetime(select_date[1]+1, 1, 1)
+    end_date = datetime(select_date[1]+1, 1, 1)
     end_bool = (spec_df['Last Day'] < end_date).values
-    begin_date = datetime.datetime(select_date[0]-1, 12, 31)
+    begin_date = datetime(select_date[0]-1, 12, 31)
     begin_bool = np.logical_and((spec_df['First Day'] < begin_date).values,
                                 (spec_df['Last Day'] > begin_date).values)
     
@@ -263,8 +375,7 @@ def update_spec_info(select_material, select_date, spec = spec):
                 Input('table_type', 'value'),
                 Input('data_type', 'value')])
 
-def update_spec_graph(select_material, select_spec, table_type, data_type, 
-                      spec = spec):
+def update_spec_graph(select_material, select_spec, table_type, data_type):
 
     df = spec[spec['material'] == select_material]
     
@@ -299,7 +410,7 @@ max_var_cnt = 3
                 Input('confirm_spec_button', 'n_clicks')])
 
 def update_input_var(select_material, focus_spec, exist_spec, n_clicks,
-                      spec = spec, max_var_cnt = max_var_cnt):
+                      max_var_cnt = max_var_cnt):
     
     if n_clicks > 0:
         df = spec[spec['material'] == select_material]
@@ -372,7 +483,7 @@ def renew_show_input_var(renew_click, names, values,
 # warning for freezing renew_input_variable button    
 @app.callback(Output('freeze_confirm', 'displayed'),
               Input('input_confirm', 'n_clicks'))
-def display_confirm(n_click):
+def display_confirm_table(n_click):
     if n_click > 0:
         return True
     else:
@@ -410,7 +521,7 @@ def display_and_show_table(confirm_click, freeze_click, unfreeze_click,
 
 @app.callback(Output('model_confirm_dialogue', 'displayed'),
               Input('run_model', 'n_clicks'))
-def display_confirm(model_click):
+def display_confirm_model(model_click):
     if model_click > 0:
         return True
     return False
@@ -423,8 +534,7 @@ def display_confirm(model_click):
                Input('intermediate_layer3', 'data')],
                prevent_initial_call = True)
 
-def update_stan_name_and_dialogue(model_click, select_material, dic_name,
-                                  spec=spec, deal=deal):
+def update_stan_name_and_dialogue(model_click, select_material, dic_name):
     
     if model_click > 0:
         with open(dic_name, 'r') as j:
@@ -457,8 +567,7 @@ def update_stan_name_and_dialogue(model_click, select_material, dic_name,
                Input('run_model', 'n_clicks'),
                Input('model_confirm_dialogue', 'submit_n_clicks')])
 
-def update_run_model(select_material, dic_name, stan_info, model_click, dialogue_click,
-                     spec = spec, deal = deal):
+def update_run_model(select_material, dic_name, stan_info, model_click, dialogue_click):
     
     if model_click > 0 and dialogue_click is not None:
         print('run model')
@@ -491,12 +600,12 @@ def update_run_model(select_material, dic_name, stan_info, model_click, dialogue
 
 ######## Callback for Manage_Data #########################
 @app.callback(Output('info_card', 'children'),
-              Input('intermediate_layer5', 'data'))
+              [Input('intermediate_layer5', 'data'),
+               Input('main_location', 'data')])
 
-def update_info_card(select_material,
-                     local_main = local_main):
+def update_info_card(select_material, loc):
     
-    mypath = local_main + '/' + select_material
+    mypath = loc + '/' + select_material
     dic_list = function.find_usable_file(mypath)
     
     if len(dic_list) == 0:
@@ -569,14 +678,15 @@ def renew_import_confirm_href(choose_value):
                 Input({'type': 'dynamic-delete-button', 'index': ALL}, 'n_clicks'),
                 Input({'type': 'dynamic-recover-button', 'index': ALL}, 'n_clicks'),
                 Input('confirm_import', 'n_clicks'),
-                Input('intermediate_layer5', 'data')],
+                Input('intermediate_layer5', 'data'),
+                Input('main_location', 'data')],
               prevent_initial_call = True)
 
 def execute_and_move(choose_value, delete_value, recover_value, confirm_click,
-                      select_material, local_main = local_main):
+                      select_material, loc):
     
     if confirm_click > 0:
-        mypath = local_main + '/' + select_material
+        mypath = loc + '/' + select_material
         os.chdir(mypath)
         
         if sum(choose_value) == 0:
@@ -642,8 +752,6 @@ def update_input_df(info1, info2, select_material):
                                         {'name':i, 'id':i} for i in reserve_spec],
                                     data=[data_dic],
                                     editable=True)
-    # global dic
-    # dic = temp_dic
     
     return children, temp_dic
 
@@ -652,10 +760,11 @@ def update_input_df(info1, info2, select_material):
               [Input('submit_spec', 'n_clicks'),
                 Input('input_spec_inform', 'data'),
                 Input('input_spec_inform', 'columns'),
-                Input('focus_spec_intermediate', 'data')],
+                Input('focus_spec_intermediate', 'data'),
+                Input('ranking_method', 'value')],
               prevent_initial_call = True)
 
-def update_input_spec(submit_click, row, column, dic):
+def update_input_spec(submit_click, row, column, dic, method_value):
     
     if submit_click > 0 and isinstance(stan_result, dict):
         focus_spec = dic['focus']
@@ -663,34 +772,52 @@ def update_input_spec(submit_click, row, column, dic):
         input_spec_value = [float(row[0][i]) for i in input_spec]
         
         rate, score = function.rating_system(input_spec_value, focus_spec,
-                                              stan_result, input_spec, dic['Mean and Var'])
+                                              stan_result, input_spec,
+                                              dic['Mean and Var'], method_value)
         
         return {'rate': rate.to_dict(), 'score': score.to_dict()}
     else:
         raise PreventUpdate
+        
+@app.callback(Output('ranking_cnt', 'options'),
+              Input('customer_slider', 'value'))
+
+def update_max_cnt(cut_off):
+    total = len(stan_result)
+    cut_off = [0] + cut_off + [1]
+    cnt_vec = []
+    for i in range(0, len(cut_off)-1):
+        cnt_vec.append(round( total*(cut_off[i+1] - cut_off[i]) ))
+    
+    cnt_vec = min(cnt_vec)
+    if cnt_vec > 5:
+        options = [{'label': i, 'value': i} for i in range(5, cnt_vec+1)]
+    else:
+        options = [{'label': 5, 'value': 5}]
+    
+    return options
+        
 
 @app.callback([Output('recommendation_system_table', 'children'),
                 Output('recommendation_system_plot', 'children'),
-                Output('total_ranking_store', 'data')],
+                Output('total_ranking_store', 'data'),
+                Output('submit_spec', 'n_clicks')],
               [Input('submit_spec', 'n_clicks'),
                 Input('customer_slider', 'value'),
                 Input('focus_spec_intermediate', 'data'),
                 Input('rate_and_score_info', 'data'),
-                Input('intermediate_layer5', 'data')])
+                Input('intermediate_layer5', 'data'),
+                Input('ranking_cnt', 'value')])
 
 def update_recommendation_system(submit_click, cut_off, info_dic,
-                                 score_dic, select_material,
-                                  customer = customer):
+                                 score_dic, select_material, choose_cnt):
 
     if submit_click > 0:
         for i in score_dic.keys():
             score_dic[i] = pd.DataFrame(score_dic[i])
         cut_off = [round(i,2) for i in cut_off]
-            
-        choose_cnt = 5
         
         cust_dic, quantile_record = function.cust_to_class(cut_off, info_dic['purchase_info'])
-        
         
         rating_class_dic, class_score = function.cust_rating(cust_dic, score_dic['score'],
                                                 choose_cnt, False, customer)
@@ -710,7 +837,7 @@ def update_recommendation_system(submit_click, cut_off, info_dic,
         
         store_dic = {'by_class': rating_all_class_dic, 'all': rating_all_dic}
         
-        return table_children, figure_children, store_dic
+        return table_children, figure_children, store_dic, 0
     else:
         raise PreventUpdate
         
