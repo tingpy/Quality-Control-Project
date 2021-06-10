@@ -10,7 +10,8 @@ import pandas as pd
 import numpy as np
 from sklearn import preprocessing
 from scipy.stats import pearsonr
-import pystan
+from pystan import StanModel
+#import pystan
 
 import os 
 from os import listdir
@@ -24,15 +25,13 @@ def isset(var):
     except:
         return False
     return a
-    
-data_location = 'C:\\Users\\acer\\Desktop\\Chimei\\QC data\\'
 
-def import_data():
-    d1 = pd.read_csv(data_location + 'quality_plastic1.csv',
+def import_data(data_location):
+    d1 = pd.read_csv(data_location + '\\quality_plastic1.csv',
                  encoding = 'utf-8')
-    d2 = pd.read_csv(data_location + 'quality_plastic2.csv',
+    d2 = pd.read_csv(data_location + '\\quality_plastic2.csv',
                  encoding = 'utf-8')
-    d3 = pd.read_csv(data_location + 'QC20.csv',
+    d3 = pd.read_csv(data_location + '\\QC20.csv',
                  encoding = 'utf-8')
 
     drop_col_name = ['MG 2', 'MG 1', '工場別', '槽/線別', '參考編號']
@@ -55,11 +54,11 @@ def import_data():
     
     ## import deal data
     # 'deal inform' is the dataframe that stores all deal data
-    d1 = pd.read_csv(data_location + 'deal1.csv',
+    d1 = pd.read_csv(data_location + '\\deal1.csv',
                      encoding = 'utf-8')
-    d2 = pd.read_csv(data_location + 'deal2.csv',
+    d2 = pd.read_csv(data_location + '\\deal2.csv',
                      encoding = 'utf-8')
-    d3 = pd.read_csv(data_location + 'deal3.csv',
+    d3 = pd.read_csv(data_location + '\\deal3.csv',
                      encoding = 'utf-8')
     deal_inform = pd.concat([d1, d2, d3])
     
@@ -109,9 +108,9 @@ def import_data():
     spec_inform['material'] = material_brief
     
     # information of intermediate(代理商) and customer name
-    intermediate_df = pd.read_csv(data_location + 'customerID.csv',
+    intermediate_df = pd.read_csv(data_location + '\\customerID.csv',
                                   encoding = 'utf-8')
-    customer_df = pd.read_csv(data_location + 'customer_name.csv',
+    customer_df = pd.read_csv(data_location + '\\customer_name.csv',
                               encoding = 'utf-8')
     
     # extract the useful information at the dataframe
@@ -374,9 +373,6 @@ model{
 
 def run_stan(concat_df, dic,
               quality_control = quality_control):
-# def run_stan(concat_df, dic,
-#               quality_control = quality_control,
-#               posterior = posterior):
     iter_cnt = 10000
     output_cnt = 2500
     
@@ -391,15 +387,16 @@ def run_stan(concat_df, dic,
         buyer_name.append(str(i))
     concat_df['buyer'] = buyer_name
     
-    posterior = pystan.StanModel(model_code=quality_control)
+    # posterior = pystan.StanModel(model_code=quality_control)
+    posterior = StanModel(model_code=quality_control)
     
     unique_buyer = concat_df['buyer'].unique()
     customer_para = {}
     purchase_cnt = []
     customer_name_list = []
-##################################################################
-    cnt1 = 0
-##################################################################
+# ##################################################################
+#     cnt1 = 0
+# ##################################################################
     for i in unique_buyer:
         temp_df = concat_df[concat_df['buyer'] == i]
         
@@ -409,23 +406,23 @@ def run_stan(concat_df, dic,
         customer_name_list.append(i)
         
         stan_data = {"Nt": len(temp_df),
-                     "Ns": len(reserve_spec),
-                     "spec": temp_df[reserve_spec]}
+                      "Ns": len(reserve_spec),
+                      "spec": temp_df[reserve_spec]}
         fit = posterior.vb(data = stan_data, 
-                           iter = iter_cnt,
-                           output_samples = output_cnt)
+                            iter = iter_cnt,
+                            output_samples = output_cnt)
         
         para_dic = {}
         for j in range(0, len(fit['sampler_param_names'])):
             para_dic[fit['sampler_param_names'][j]] = fit['sampler_params'][j]
         customer_para[i] = para_dic
-#####################################################################3     
-        cnt1 = cnt1 + 1
-        if cnt1 == 10:
-            break
-##########################################################################33   
+# #####################################################################3     
+#         cnt1 = cnt1 + 1
+#         if cnt1 == 10:
+#             break
+# ##########################################################################33   
     purchase_info_dic = {'customer': customer_name_list,
-                         'purchase_cnt': purchase_cnt}
+                          'purchase_cnt': purchase_cnt}
     
     return customer_para, purchase_info_dic
 
@@ -474,8 +471,7 @@ def delete_and_rename_file(mypath, delete_value, recover_value,
     sub3 = '.json'
     
     reserve_file = []
-    print(delete_value)
-    print(recover_value)
+
     for i in range(len(delete_value)):
         if (delete_value[i] - recover_value[i]) > 0 and choose_value[i] == 0:
             try:
@@ -488,11 +484,9 @@ def delete_and_rename_file(mypath, delete_value, recover_value,
             except:
                 print(sub2 + str(i+1) + sub3 + ''' doesn't exist!''')
         else:
-            print(i)
             reserve_file.append(i)
     
     for j in range(len(reserve_file)):
-        print(mypath + '/' + sub1 + str(reserve_file[j]+1) + sub3)
         os.rename(mypath + '/' + sub1 + str(reserve_file[j]+1) + sub3,
                   mypath + '/' + sub1 + str(j+1) + sub3)
         os.rename(mypath + '/' + sub2 + str(reserve_file[j]+1) + sub3,
@@ -545,7 +539,8 @@ def rating_system(input_spec_value, # the spec information of current product
                   focus_spec_name,
                   customer_para,
                   reserve_spec,
-                  mean_and_sd):
+                  mean_and_sd,
+                  ranking_method):
     
     rating_df = pd.DataFrame(columns=['customer id'] + [i+j for i in focus_spec_name for j in ['_mean', '_sigma']] + [i+'_score' for i in focus_spec_name])
     score_df = pd.DataFrame(columns=['customer id', 'score'])
@@ -580,7 +575,10 @@ def rating_system(input_spec_value, # the spec information of current product
             
             store_value.append(mean_value)
             store_value.append(sigma_value)
-            score_value.append((input_spec_value[spec_index] - mean_value)/sigma_value)
+            if ranking_method == 1:
+                score_value.append((input_spec_value[spec_index] - mean_value)/sigma_value)
+            else:
+                score_value.append(input_spec_value[spec_index] - mean_value)
             
         rating_df.loc[customer_cnt] = [i] + store_value + score_value
         customer_cnt = customer_cnt + 1
@@ -612,15 +610,13 @@ def cust_to_class(cut_off, purchase_info):
                       'Sixth', 'Seventh']
         
     purchase_cnt = purchase_info['purchase_cnt']
-    print(type(purchase_cnt))
     name_list = purchase_info['customer']
     
     cut_off = [0] + cut_off + [1]
     cut_off.reverse()
 
     quan_cut_off = [round( np.quantile(purchase_cnt, cut_off[i]) ) for i in range(class_cnt+1)]
-    #purchase_cnt = np.array(purchase_cnt)
-    print(quan_cut_off)
+    purchase_cnt = np.array(purchase_cnt)
     cust_class_dic = {}
     for i in range(class_cnt):
         # two different quantile should not have same cut point
@@ -642,7 +638,7 @@ def cust_to_class(cut_off, purchase_info):
 def cust_rating(cust_dic, score, choose_cnt, type, customer):
     cust_rating_dic = {}
     score_dic = {}
-    print(score)
+   
     if type:
         reserve = []
         for i in cust_dic.keys(): reserve = reserve + cust_dic[i]

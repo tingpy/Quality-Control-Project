@@ -7,20 +7,19 @@ Created on Wed Mar 17 15:13:32 2021
 
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
-import dash_table
-import plotly.figure_factory as ff
-import plotly.express as px
-from plotly.offline import plot
+# import plotly.figure_factory as ff
+from plotly.figure_factory import create_distplot
+# import plotly.express as px
+from plotly.express import scatter
+# from plotly.offline import plot
 
 import pandas as pd
-import numpy as np
 from datetime import datetime
 
-import function
-from quality_py import deal
-from quality_py import spec
+from app_structure import function
+# from quality_app import deal
+# from quality_app import spec
 
 # still have some problem in the plot
 def create_spec_plot(df, select_spec, table_type, data_type):
@@ -37,12 +36,12 @@ def create_spec_plot(df, select_spec, table_type, data_type):
         hist_data = [plot_dic[i] for i in plot_dic.keys()]
         group_label = [i for i in plot_dic.keys()]
         
-        return ff.create_distplot(hist_data, group_label, bin_size=.2)
+        return create_distplot(hist_data, group_label, bin_size=.2)
         
     else:
         plot_df = function.LOT_based_df(df, select_spec, data_type)
         
-        return px.scatter(plot_df, 
+        return scatter(plot_df, 
                           x=plot_df.columns[2], # remove 'LOTNO' and 'date'
                           y=plot_df.columns[3])
 
@@ -73,7 +72,7 @@ def create_input_block(dic, key, key_cnt):
                                     'index': key_cnt,
                                   },
                                   value= ", ".join(dic[key]),
-                                  style={'width': '100%'}))
+                                  style={'width': '40%'}))
                 ])
 
 def generate_freeze_table(focus_spec, select_dic):
@@ -93,7 +92,6 @@ def create_model_dialogue(dic):
     
     return dbc.Row([dcc.ConfirmDialog(
         id='model_confirm_dialogue',
-        
         message=confirm_str_warning1 + confirm_str_info + confirm_str_warning2)
     ])
     
@@ -120,15 +118,13 @@ material_dropdown =html.Div([
         dbc.Col(
             dcc.Dropdown(
                 id='material_dropdown',
-                options=[{'label': i, 'value': i} for i in deal['material'].unique()],
                 value='765AXXX',
                 persistence=True,
                 persistence_type='session',
                 style={'background-color': 'white','color' : 'black' ,
                        'width': '100%','font-weight': '1000'},
             ),
-            className='mb-4'
-        )
+            className='mb-4')
     ]),
     
     dbc.Row([
@@ -137,7 +133,8 @@ material_dropdown =html.Div([
                 children=html.A(
                     children='Skip Model',
                     href='/Manage_Data',
-                    style={'display': 'inline-block', 'width': '200px', 'margin':'auto'}
+                    style={'width': '200px', 'height': '50px','margin-right': '7px',
+                           'backgroundColor': 'grey', 'color':'white'}
                 ),
                 id='skip_model',
                 n_clicks=0),
@@ -315,17 +312,12 @@ intermediate_layers = dbc.Row([
                 dbc.Col(
                     html.Div(id='suggest_variable_cnt',
                              style={'background-color': 'white','color' : 'black',
-                                    'width': '150%','font-weight': '1000'})
+                                    'width': '100%','font-weight': '1000'})
                 )
             ),
         ),            
-        html.Div(id='input_space',
-                 style={'height' : '100%',
-                                    'width': '100%','font-weight': '1000','padding': '30px'}),
-        
-        html.Div(id='show_freeze_table',style={'height' : '100%','padding': '30px'}
-                ),
-       
+        html.Div(id='input_space'),
+        html.Div(id='show_freeze_table')
     ])
 ])
 
@@ -358,8 +350,7 @@ button_collections = html.Div(id='button_collection',
                                                 id='renew_variable_button',
                                                 n_clicks=0,
                                                 style={'width': '200px', 'height': '50px','margin-right': '7px',
-                                                       'backgroundColor': 'grey', 'color':'white'
-                                                      })
+                                                       'backgroundColor': 'grey', 'color':'white'})
                                             ),
                                         dbc.Col(
                                             html.Button(
@@ -367,8 +358,7 @@ button_collections = html.Div(id='button_collection',
                                             id='input_confirm',
                                             n_clicks=0,
                                             style={'width': '200px', 'height': '50px', 'margin-right': '7px',
-                                                   'backgroundColor': 'grey', 'color':'white'
-                                                   }),
+                                                   'backgroundColor': 'grey', 'color':'white'}),
                                         ),
                                     ], align = 'end') 
                                 ]
@@ -384,8 +374,7 @@ button_collections = html.Div(id='button_collection',
                                                 id='unfreeze',
                                                 n_clicks=0,
                                                 style={'width': '200px', 'height': '50px', 'margin-right': '7px',
-                                                       'backgroundColor': 'grey', 'color':'white'
-                                                      }
+                                                       'backgroundColor': 'grey', 'color':'white'}
                                             ),
                                         ),
                                         dbc.Col(
@@ -394,8 +383,7 @@ button_collections = html.Div(id='button_collection',
                                                 id='run_model',
                                                 n_clicks=0,
                                                 style={'width': '200px', 'height': '50px','margin-right': '7px',
-                                                       'backgroundColor': 'grey', 'color':'white'
-                                                      }
+                                                       'backgroundColor': 'grey', 'color':'white'}
                                             ),
                                         )
                                     ])
@@ -411,7 +399,8 @@ button_collections = html.Div(id='button_collection',
                 children=html.A(
                     children='Next',
                     href='/Model',
-                    style={'display': 'inline-block', 'width': '70px', 'margin':'auto'}
+                    style={'width': '200px', 'height': '50px','margin-right': '7px',
+                           'backgroundColor': 'grey', 'color':'white'}
                 ),
                 id='next_page',
                 style={'display': 'none'}    
