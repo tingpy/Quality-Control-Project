@@ -28,8 +28,8 @@ from app_structure import Navi_bar, Import_New_Data, EDA, Manage_Data, Model, ma
 
 
 import os
-os.chdir("./")
-# os.chdir("C:/Users/acer/Desktop/Chimei/QC data")
+# os.chdir("./")
+os.chdir("C:/Users/acer/Desktop/Chimei/QC data")
 
 # prepare for the dataframe
 deal = 0
@@ -41,10 +41,10 @@ import_spec = 0
 import_agent = 0
 import_customer = 0
 
+aaa = []
+bbb = []
+ccc = 0
 
-import os
-os.chdir('C:\\Users\\acer\\Desktop\\Chimei\\QC data')
-# local_main = 'C:\\Users\\acer\\Desktop\\Chimei\\QC data'
 stan_result = []
 
 # needed only if running this as a single page app
@@ -83,6 +83,10 @@ app.layout = html.Div([
                             storage_type='session'),
                   dcc.Store(id='main_location',
                             storage_type='session'),
+                  dcc.Store(id='data_duration',
+                            storage_type='memory'),
+                  dcc.Store(id='previous_table',
+                            storage_type='memory'),
                   dcc.Store(id='info_store1',
                             storage_type='session'),
                   dcc.Store(id='info_store2',
@@ -381,6 +385,77 @@ def update_spec_graph(select_material, select_spec, table_type, data_type):
     
     return EDA.create_spec_plot(df, select_spec, table_type, data_type)
 
+
+@app.callback(Output('duration_table', 'children'),
+              [Input('material_dropdown', 'value'),
+               Input('choose_focus_spec', 'value')])
+# ,
+#               prevent_initial_call = True)
+
+def show_select_duration_table(select_material, select_spec):
+    
+    df = spec[spec['material'] == select_material]
+    children = EDA.generate_duration_table(df, select_spec)
+    
+    return children
+
+@app.callback(Output({'type': 'limit-table', 'index': MATCH}, 'data'),
+              [Input({'type': 'limit-table', 'index': MATCH}, 'active_cell'),
+               State({'type': 'limit-table', 'index': MATCH}, 'data')],
+              prevent_initial_call = True)
+
+def update_limit_table_selected_cell(cell, data):
+    
+    if cell['column_id'] == 'Selected':
+        current_value = data[cell['row']]['Selected']
+        if current_value == 'Selected':
+            data[cell['row']]['Selected'] = 'Unselected'
+        else:
+            data[cell['row']]['Selected'] = 'Selected'
+        return data
+    
+    raise PreventUpdate
+    
+
+@app.callback([Output('duration_unselect', 'displayed'),
+               Output('duration_collide', 'displayed'),
+               Output('data_duration', 'data')],
+              Input('confirm_spec_button', 'n_clicks'),
+              State({'type': 'limit-table', 'index': ALL}, 'data'))
+
+def update_data_duration(n_clicks, data):
+    
+    if n_clicks != 0:
+        show_warning_unselect = False
+        show_warning_collide = False
+        min_time = datetime.strptime('2000/1/1', '%Y/%m/%d')
+        max_time = datetime.now()
+        for vec in data:
+            select_cnt = 0
+            for element in vec:
+                if element['Selected'] == 'Selected':
+                    select_cnt = select_cnt + 1
+                    if min_time < datetime.strptime(element['First Date'], '%Y/%m'):
+                        min_time = datetime.strptime(element['First Date'], '%Y/%m')
+                    if max_time > datetime.strptime(element['Last Date'], '%Y/%m'):
+                        max_time = datetime.strptime(element['Last Date'], '%Y/%m')
+                        
+            if select_cnt == 0:
+                show_warning_unselect = True
+                return show_warning_unselect, show_warning_collide, {}
+        
+        ### should add something here
+        if max_time <= min_time:
+            show_warning_collide = True
+            return show_warning_unselect, show_warning_collide, {}
+        
+        return show_warning_unselect, show_warning_collide, {'First Date': min_time,
+                                                             'Last Date': max_time}
+    
+    raise PreventUpdate
+         
+    
+
 # send the message that you have chosen some focus spec
 @app.callback(Output('choose_spec_intermediate', 'children'),
               [Input('confirm_spec_button', 'n_clicks'),
@@ -407,13 +482,16 @@ max_var_cnt = 3
               [Input('material_dropdown', 'value'),
                 Input('choose_focus_spec', 'value'),
                 Input('intermediate_layer', 'value'),
-                Input('confirm_spec_button', 'n_clicks')])
+                Input('confirm_spec_button', 'n_clicks'),
+                Input('data_duration', 'data')])
 
 def update_input_var(select_material, focus_spec, exist_spec, n_clicks,
-                      max_var_cnt = max_var_cnt):
+                      duration, max_var_cnt = max_var_cnt):
     
-    if n_clicks > 0:
+    if n_clicks > 0 and len(duration) == 2:
         df = spec[spec['material'] == select_material]
+        df = df[df['date'] >= duration['First Date']]
+        df = df[df['date'] <= duration['Last Date']]
         lot_df = function.LOT_based_df(df, exist_spec, 'Original')
         lot_df = lot_df.drop(lot_df.columns[0:2], axis=1)
         
@@ -432,7 +510,8 @@ def update_input_var(select_material, focus_spec, exist_spec, n_clicks,
 
 # return the dcc.Input for each focus spec
 @app.callback([Output('input_space', 'children'),
-               Output('button_collection', 'style')],
+               Output('button_collection', 'style'),
+               Output('confirm_spec_button', 'n_clicks')],
               [Input('intermediate_layer3', 'data'),
                Input('confirm_spec_button', 'n_clicks')],
               prevent_initial_call = True)
@@ -444,7 +523,7 @@ def update_show_input_var(dic_name, n_clicks):
             
         key_list = list(dic.keys())
         children = [EDA.create_input_block(dic, key_list[i], i) for i in range(len(key_list))] 
-        return children, {'display': 'block'}
+        return children, {'display': 'block'}, 0
     else:
         return PreventUpdate
 
@@ -577,8 +656,6 @@ def update_run_model(select_material, dic_name, stan_info, model_click, dialogue
         concat_df, mean_var_dic = function.spec_deal_concat(select_material, 
                                                            spec, deal, dic, 'Standardized')
 
-        
-
         global stan_result
         stan_result, purchase_info_dic = function.run_stan(concat_df, dic)
         
@@ -590,6 +667,10 @@ def update_run_model(select_material, dic_name, stan_info, model_click, dialogue
         with open(stan_info['next_info_name'], 'w') as file:
             json.dump(stan_info['info_dic'], file)
         
+        stan_info['info_dic']['activate time'] = datetime.now().timestamp()
+        
+        global aaa
+        aaa = stan_info['info_dic']
         return stan_info['info_dic'], {'float': 'right'}
     else:
         raise PreventUpdate
@@ -703,7 +784,9 @@ def execute_and_move(choose_value, delete_value, recover_value, confirm_click,
                 stan_result = json.load(j)
             with open(info_name, 'r') as j:
                 info_dic = json.load(j)
-                
+            
+            info_dic['activate time'] = datetime.now().timestamp()
+            
             function.delete_and_rename_file(mypath, delete_value, 
                                         recover_value, choose_value, select_material)    
             return Manage_Data.warning_dialogue(1), False, info_dic
@@ -717,7 +800,7 @@ def execute_and_move(choose_value, delete_value, recover_value, confirm_click,
                                                  
         
 ###########################################################
-        
+
 
 ######## Callback for Model ###############################
     
@@ -731,7 +814,8 @@ def update_init_customer_slider(value):
     return vec
 
 @app.callback([Output('input_spec_inform_div', 'children'),
-                Output('focus_spec_intermediate', 'data')],
+                Output('focus_spec_intermediate', 'data'),
+                Output('purchase_info', 'data')],
                 [Input('info_store1', 'data'),
                 Input('info_store2', 'data'),
                 Input('intermediate_layer5', 'data')])
@@ -739,21 +823,66 @@ def update_init_customer_slider(value):
 def update_input_df(info1, info2, select_material):
     
     temp_dic = function.return_table_variable(info1, info2, select_material)
+    total_cnt = len(temp_dic['purchase_info']['customer'])
     try:
         reserve_spec = temp_dic['input']
+        spec_mean = temp_dic['Mean and Var']['mean']
     except:
         warning = html.H5('''Spec information hasn't been imported, please check again!''')
         return warning, None
     
-    data_dic = {'LOTNO': 'LOTNO'}
-    for i in reserve_spec: data_dic[i] = 0
+    data_dic = [{'Format': 'Original'}, {'Format': 'Standardized'}]
+    for i,j in enumerate(reserve_spec): 
+        data_dic[0][j] = round(spec_mean[i], 2)
+        data_dic[1][j] = 0
+        
     children = dash_table.DataTable(id='input_spec_inform',
-                                    columns=[{'name': 'LOTNO', 'id': 'LOTNO'}] + [
+                                    columns=[{'name': 'Format', 'id': 'Format'}] + [
                                         {'name':i, 'id':i} for i in reserve_spec],
-                                    data=[data_dic],
+                                    data=data_dic,
                                     editable=True)
+                                    # style_data_conditional=[
+                                    #     ])
     
-    return children, temp_dic
+    return children, temp_dic, total_cnt
+
+
+@app.callback([Output('input_spec_inform', 'data'),
+               Output('previous_table', 'data'),
+               Output('input_spec_inform', 'style_data_conditional')],
+              [Input('focus_spec_intermediate', 'data'),
+               Input('input_spec_inform', 'data_timestamp')],
+              [State('input_spec_inform', 'data'),
+               State('previous_table', 'data')])
+
+def update_input_spec_inform(dic_info, time_stamp, cur_data, pre_data):
+    
+    if pre_data is not None:
+        dic_index, key_index = function.check_table_diff(cur_data, pre_data)
+    
+        if dic_index != -1:
+            spec_name = dic_info['Mean and Var']['spec']
+            spec_mean = dic_info['Mean and Var']['mean']
+            spec_sd = dic_info['Mean and Var']['sd']
+            
+            spec_index = spec_name.index(key_index)
+            aaa.append(cur_data)
+            bbb.append(pre_data)
+
+            if dic_index == 0:
+                print('here2')
+                cur_data[1][key_index] = round((float(cur_data[0][key_index]) - spec_mean[spec_index])
+                                               / spec_sd[spec_index], 2)
+            else:
+                cur_data[0][key_index] = round(float(cur_data[1][key_index]) * spec_sd[spec_index] 
+                                               + spec_mean[spec_index], 2)
+            print(cur_data)
+            print(pre_data)
+            print('#########')
+            
+            return cur_data, cur_data, Model.update_data_conditional_style(cur_data)
+    
+    raise PreventUpdate
 
 
 @app.callback(Output('rate_and_score_info', 'data'),
@@ -780,15 +909,19 @@ def update_input_spec(submit_click, row, column, dic, method_value):
         raise PreventUpdate
         
 @app.callback(Output('ranking_cnt', 'options'),
-              Input('customer_slider', 'value'))
+              [Input('customer_slider', 'value'),
+               Input('purchase_info', 'data')])
 
-def update_max_cnt(cut_off):
-    total = len(stan_result)
+def update_max_cnt(cut_off, total):
     cut_off = [0] + cut_off + [1]
     cnt_vec = []
+
+    print(total)
     for i in range(0, len(cut_off)-1):
         cnt_vec.append(round( total*(cut_off[i+1] - cut_off[i]) ))
     
+    global ccc
+    ccc = cnt_vec
     cnt_vec = min(cnt_vec)
     if cnt_vec > 5:
         options = [{'label': i, 'value': i} for i in range(5, cnt_vec+1)]
