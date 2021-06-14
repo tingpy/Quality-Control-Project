@@ -29,7 +29,7 @@ from app_structure import Navi_bar, Import_New_Data, EDA, Manage_Data, Model, ma
 
 import os
 # os.chdir("./")
-os.chdir("C:/Users/acer/Desktop/Chimei/QC data")
+os.chdir("D:/cm/QC data")
 
 # prepare for the dataframe
 deal = 0
@@ -692,8 +692,17 @@ def update_info_card(select_material, loc):
     if len(dic_list) == 0:
         return Manage_Data.nothing_available(True)
     else:
-        children = [Manage_Data.create_info_card(j, i) for i,j in enumerate(dic_list)]
-        return children
+        children_row = []
+        children_col = []
+        cnt_for_row = 3
+        for i,j in enumerate(dic_list):
+            children_col.append(dbc.Col(Manage_Data.create_info_card(j, i)))
+            if i % cnt_for_row == 2:
+                children_row.append(dbc.Row(children_col,
+                                            style = {'padding':'10px'}))
+                children_col = []
+                
+        return children_row
 
     
 @app.callback([Output({'type': 'dynamic-Card', 'index': MATCH}, 'color')],
@@ -706,9 +715,9 @@ def update_info_card(select_material, loc):
 
 def update_card_color(choose_value, delete_value, recover_value,
                       current_color):
-    choose_color = 'red'
-    delete_color = 'light'
-    recover_color = 'dark'
+    choose_color = 'grey'
+    delete_color = 'SlateBlue'
+    recover_color = 'black'
 
     if choose_value > 0:
         return [choose_color]
