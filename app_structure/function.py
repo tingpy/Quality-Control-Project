@@ -589,13 +589,15 @@ def return_table_variable(dic1, dic2, material):
         return {}
     elif dic1 is None:        
         if dic2['Selected Material'] == material:
-            return_dic = dic_string_to_list(dic2['Input Variable'])
-            return_dic['Mean and Var'] = dic2['Mean and Var']
-            return_dic['purchase_info'] = dic2['purchase_info']
-            return return_dic
+            dic = dic2
         else:
             return {}
-    else:        
+    elif dic2 is None:
+        if dic1['Selected Material'] == material:
+            dic = dic1
+        else:
+            return {}
+    else:
         if dic1['Selected Material'] == material and dic2['Selected Material'] == material:
             if dic1['activate time'] > dic2['activate time']:
                 dic = dic1
@@ -608,10 +610,10 @@ def return_table_variable(dic1, dic2, material):
         else:
             return {}
             
-        return_dic = dic_string_to_list(dic['Input Variable'])
-        return_dic['Mean and Var'] = dic['Mean and Var']
-        return_dic['purchase_info'] = dic['purchase_info']
-        return return_dic
+    return_dic = dic_string_to_list(dic['Input Variable'])
+    return_dic['Mean and Var'] = dic['Mean and Var']
+    return_dic['purchase_info'] = dic['purchase_info']
+    return return_dic
                  
 
     
