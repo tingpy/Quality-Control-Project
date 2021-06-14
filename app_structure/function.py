@@ -125,39 +125,83 @@ def import_data(data_location):
     return spec_inform, deal_inform, intermediate_df, customer_df
 
 
-def LOT_based_df(spec_interest, select_spec, data_type):
-    LOTNO_unique = spec_interest['LOTNO'].unique()
-    spec_name_exist = select_spec
-    reserve_col_name = ['LOTNO', 'date']
-    if len(select_spec) == 1:
-        lotno_inform = pd.DataFrame(data = None,
-                                    columns = reserve_col_name + [spec_name_exist])
-    else:
-        lotno_inform = pd.DataFrame(data = None,
-                                    columns = reserve_col_name + spec_name_exist)
+# def LOT_based_df(spec_interest, select_spec, data_type):
+#     LOTNO_unique = spec_interest['LOTNO'].unique()
+#     spec_name_exist = select_spec
+#     reserve_col_name = ['LOTNO', 'date']
+#     if len(select_spec) == 1:
+#         lotno_inform = pd.DataFrame(data = None,
+#                                     columns = reserve_col_name + [spec_name_exist])
+#     else:
+#         lotno_inform = pd.DataFrame(data = None,
+#                                     columns = reserve_col_name + spec_name_exist)
         
-    row_count = 0
-    for i in LOTNO_unique:
-        temp_store = []
-        temp_store.append(i)
-        temp_df = spec_interest[spec_interest['LOTNO'] == i]
-        temp_store.append(temp_df['date'].values[0])
-        for j in spec_name_exist:
-            try:
-                k = temp_df['spec name'].tolist().index(j)
-                temp_store.append(temp_df['spec value'].values[k])
-            except:
-                temp_store.append(None)
-        lotno_inform.loc[row_count] = temp_store
-        row_count = row_count + 1
+#     row_count = 0
+#     for i in LOTNO_unique:
+#         temp_store = []
+#         temp_store.append(i)
+#         temp_df = spec_interest[spec_interest['LOTNO'] == i]
+#         temp_store.append(temp_df['date'].values[0])
+#         for j in spec_name_exist:
+#             try:
+#                 k = temp_df['spec name'].tolist().index(j)
+#                 temp_store.append(temp_df['spec value'].values[k])
+#             except:
+#                 temp_store.append(None)
+#         lotno_inform.loc[row_count] = temp_store
+#         row_count = row_count + 1
+    
+#     lotno_inform = lotno_inform.dropna(axis = 0)
+#     if data_type == 'Standardized':
+#         for i in range(len(reserve_col_name), lotno_inform.shape[1]):
+#             lotno_inform.iloc[:, i] = preprocessing.scale(
+#                 lotno_inform.iloc[:, i].values)
+            
+#     return lotno_inform
+
+
+def LOT_based_df(spec_interest, select_spec, data_type):
+    group_obj = spec_interest.groupby('spec name') 
+    store_series = []
+    df_date = pd.DataFrame(data = None, columns = ['date'])
+    for k, v in group_obj:
+        temp_series = pd.Series(v['spec value'].tolist(), name=k)
+        temp_series.index = v['LOTNO']
+        temp_series = temp_series.dropna()
+        store_series.append(temp_series)
+        
+        temp_date_df = pd.DataFrame({'date': v['date'].tolist()}, 
+                                    index = v['LOTNO'])
+        temp_date_df = temp_date_df[~temp_date_df.index.duplicated(keep='first')]
+        df_date = df_date.combine_first(temp_date_df)
+        
+    df = pd.concat(store_series, axis = 1)
+
+    df = df.sort_index(ascending=True)
+    df_date = df_date.sort_index(ascending=True)
+    lotno_inform = pd.concat([df_date, df], axis=1)
+    lotno_inform.insert(loc=0, column='LOTNO', value=lotno_inform.index)
+    lotno_inform.index = [i for i in range(0, lotno_inform.shape[0])]
+    
+    if isinstance(select_spec, list):
+        reserve_col_name = ['LOTNO', 'date'] + select_spec
+    else:
+        reserve_col_name = ['LOTNO', 'date'] + [select_spec]
+    
+    drop_col = []
+    for i in lotno_inform.columns:
+        if i not in reserve_col_name:
+            drop_col.append(i)
+    lotno_inform = lotno_inform.drop(drop_col, axis=1)
     
     lotno_inform = lotno_inform.dropna(axis = 0)
     if data_type == 'Standardized':
-        for i in range(len(reserve_col_name), lotno_inform.shape[1]):
+        for i in range(2, lotno_inform.shape[1]):
             lotno_inform.iloc[:, i] = preprocessing.scale(
                 lotno_inform.iloc[:, i].values)
-            
+    
     return lotno_inform
+    
 
 
 def spec_to_dic(spec_interest, select_spec, data_type):
@@ -166,11 +210,38 @@ def spec_to_dic(spec_interest, select_spec, data_type):
         
     for i in select_spec:
         df_bool = spec_interest['spec name'] == i
+        spec_df = spec_interest.loc[df_bool, col_loc]
+        spec_df = spec_df.dropna()
+
         if data_type == 'Standardized':
-            store_dic[i] = preprocessing.scale(spec_interest.loc[df_bool, col_loc].T.values[0])
-            
+            store_dic[i] = preprocessing.scale(spec_df.T.values[0])
         else:
-            store_dic[i] = spec_interest.loc[df_bool, col_loc].T.values[0]
+            store_dic[i] = spec_df.T.values[0]
+            
+    return store_dic
+
+def time_shift(spec_interest, select_spec, data_type):
+    store_dic = {}
+    col_loc = spec_interest.columns == 'spec value'
+    df = spec_interest[spec_interest['spec name'] == select_spec[0]]
+    spec_limit = set(df['spec limit'])
+  
+    for i in spec_limit:
+        df_bool = df['spec limit'] == i
+        spec_df = df.loc[df_bool,:]
+        max_date = spec_df['date'].max()
+        min_date = spec_df['date'].min()
+        max_date = str(max_date.year) + '/' + str(max_date.month)
+        min_date = str(min_date.year) + '/' + str(min_date.month)
+        spec_df = spec_df.loc[:, col_loc]
+        spec_df = spec_df.dropna()
+        
+        
+        dic_name = i + ' (' + min_date + ' - ' + max_date + ')'
+        if data_type == 'Standardized':
+            store_dic[dic_name] = preprocessing.scale(spec_df.T.values[0])
+        else:
+            store_dic[dic_name] = spec_df.T.values[0]
             
     return store_dic
 
@@ -394,14 +465,14 @@ def run_stan(concat_df, dic,
     customer_para = {}
     purchase_cnt = []
     customer_name_list = []
-# ##################################################################
-#     cnt1 = 0
-# ##################################################################
+##################################################################
+    cnt1 = 0
+##################################################################
     for i in unique_buyer:
         temp_df = concat_df[concat_df['buyer'] == i]
         
-        print(len(temp_df))
-        print(i)
+        # print(len(temp_df))
+        # print(i)
         purchase_cnt.append(len(temp_df))
         customer_name_list.append(i)
         
@@ -416,11 +487,11 @@ def run_stan(concat_df, dic,
         for j in range(0, len(fit['sampler_param_names'])):
             para_dic[fit['sampler_param_names'][j]] = fit['sampler_params'][j]
         customer_para[i] = para_dic
-# #####################################################################3     
-#         cnt1 = cnt1 + 1
-#         if cnt1 == 10:
-#             break
-# ##########################################################################33   
+#####################################################################3     
+        cnt1 = cnt1 + 1
+        if cnt1 == 20:
+            break
+##########################################################################33   
     purchase_info_dic = {'customer': customer_name_list,
                           'purchase_cnt': purchase_cnt}
     
@@ -525,14 +596,23 @@ def return_table_variable(dic1, dic2, material):
         else:
             return {}
     else:        
-        if dic1['Selected Material'] == material:
-            return_dic = dic_string_to_list(dic1['Input Variable'])
-            return_dic['Mean and Var'] = dic1['Mean and Var']
-            return_dic['purchase_info'] = dic1['purchase_info']
-            return return_dic
+        if dic1['Selected Material'] == material and dic2['Selected Material'] == material:
+            if dic1['activate time'] > dic2['activate time']:
+                dic = dic1
+            else:
+                dic = dic2
+        elif dic1['Selected Material'] == material:
+            dic = dic1
+        elif dic2['Selected Material'] == material:
+            dic = dic2
         else:
             return {}
             
+        return_dic = dic_string_to_list(dic['Input Variable'])
+        return_dic['Mean and Var'] = dic['Mean and Var']
+        return_dic['purchase_info'] = dic['purchase_info']
+        return return_dic
+                 
 
     
 def rating_system(input_spec_value, # the spec information of current product
@@ -698,7 +778,17 @@ def score_name_congugate(name, score):
     return congugate_dic
     
     
-
+def check_table_diff(cur, pre):
+    vec_len = len(cur)
+    dic_index = -1
+    key_index = ''
+    for i in range(0, vec_len):
+        for j in cur[i].keys():
+            if cur[i][j] != pre[i][j]:
+                dic_index = i
+                key_index = j
+    
+    return dic_index, key_index
 
             
 

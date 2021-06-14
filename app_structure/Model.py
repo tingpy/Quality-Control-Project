@@ -15,6 +15,7 @@ from plotly.figure_factory import create_distplot
 from plotly.graph_objects import Figure, Scatter
 
 import numpy as np
+import pandas as pd
 
 
 def dic_to_table(dic, choose_cnt):
@@ -183,6 +184,51 @@ def create_figure(class_dic, class_score, all_dic, all_score, score_dic,
         )
         
         return sub_children    
+
+
+def update_data_conditional_style(cur_data):
+    return {}
+# def discrete_background_color_bins(dic, n_bins, columns='all'):
+#     import colorlover
+#     ranges = [-10000, -4, -3, -2, 2, 3, 4, 10000]
+#     background = colorlover.scales['3']['seq']['Reds'].reverse() + [''] + colorlover.scales['3']['seq']['Reds']
+#     styles = []
+#     legend = []
+#     df = pd.DataFrame(dic)
+#     col_name = df.columns
+    
+#     for i in 
+#     for i in range(1, len(bounds)):
+#         min_bound = ranges[i - 1]
+#         max_bound = ranges[i]
+#         backgroundColor = background[i]
+
+#         for column in df.columns:
+#             styles.append({
+#                 'if': {
+#                     'filter_query': (
+#                         '{{{column}}} >= {min_bound}' +
+#                         (' && {{{column}}} < {max_bound}' if (i < len(bounds) - 1) else '')
+#                     ).format(column=column, min_bound=min_bound, max_bound=max_bound),
+#                     'column_id': column
+#                 },
+#                 'backgroundColor': backgroundColor,
+#                 'color': color
+#             })
+#         legend.append(
+#             html.Div(style={'display': 'inline-block', 'width': '60px'}, children=[
+#                 html.Div(
+#                     style={
+#                         'backgroundColor': backgroundColor,
+#                         'borderLeft': '1px rgb(50, 50, 50) solid',
+#                         'height': '10px'
+#                     }
+#                 ),
+#                 html.Small(round(min_bound, 2), style={'paddingLeft': '2px'})
+#             ])
+#         )
+
+#     return (styles, html.Div(legend, style={'padding': '5px 0 5px 0'}))
 
 layout = dbc.Container(id='model_body',
                        children=[
