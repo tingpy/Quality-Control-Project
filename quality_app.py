@@ -13,6 +13,7 @@ import dash_html_components as html
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 import dash_table
+from dash_table.Format import Format
 
 import pandas as pd
 import numpy as np
@@ -28,8 +29,8 @@ from app_structure import Navi_bar, Import_New_Data, EDA, Manage_Data, Model, ma
 
 
 import os
-# os.chdir("./")
-os.chdir("D:/cm/QC data")
+os.chdir("./")
+
 
 # prepare for the dataframe
 deal = 0
@@ -845,53 +846,64 @@ def update_input_df(info1, info2, select_material):
         data_dic[0][j] = round(spec_mean[i], 2)
         data_dic[1][j] = 0
         
-    children = dash_table.DataTable(id='input_spec_inform',
-                                    columns=[{'name': 'Format', 'id': 'Format'}] + [
-                                        {'name':i, 'id':i} for i in reserve_spec],
-                                    data=data_dic,
-                                    editable=True)
+    children = dash_table.DataTable(
+        id='input_spec_inform',
+        columns=[{'name': 'Format', 'id': 'Format'}] + [
+                 {'name':i, 'id':i, 'type':'numeric', 'format':Format(precision=5)} for i in reserve_spec],
+        data=data_dic,
+        editable=True
+    )
                                     # style_data_conditional=[
                                     #     ])
     
     return children, temp_dic, total_cnt
 
 
-@app.callback([Output('input_spec_inform', 'data'),
-               Output('previous_table', 'data'),
-               Output('input_spec_inform', 'style_data_conditional')],
-              [Input('focus_spec_intermediate', 'data'),
-               Input('input_spec_inform', 'data_timestamp')],
-              [State('input_spec_inform', 'data'),
-               State('previous_table', 'data')])
+@app.callback(Output('input_spec_inform', 'data'),
+              Output('previous_table', 'data'),
+              Input('input_spec_inform', 'data_timestamp'),
+              State('input_spec_inform', 'data'),
+              State('focus_spec_intermediate', 'data'),
+              State('previous_table', 'data'))
+def update_input_spec_inform(timestamp, cur_data, dic_info, pre_data):
 
-def update_input_spec_inform(dic_info, time_stamp, cur_data, pre_data):
+    spec_name_list = dic_info['Mean and Var']['spec']   
+    spec_mean_list = dic_info['Mean and Var']['mean']
+    spec_sd_list = dic_info['Mean and Var']['sd']
     
-    if pre_data is not None:
-        dic_index, key_index = function.check_table_diff(cur_data, pre_data)
-    
-        if dic_index != -1:
-            spec_name = dic_info['Mean and Var']['spec']
-            spec_mean = dic_info['Mean and Var']['mean']
-            spec_sd = dic_info['Mean and Var']['sd']
-            
-            spec_index = spec_name.index(key_index)
-            aaa.append(cur_data)
-            bbb.append(pre_data)
+    spec_mean_dict = {spec_name_list[i]:spec_mean_list[i] for i in range(len(spec_name_list))}
+    spec_sd_dict = {spec_name_list[i]:spec_sd_list[i] for i in range(len(spec_name_list))}
 
-            if dic_index == 0:
-                print('here2')
-                cur_data[1][key_index] = round((float(cur_data[0][key_index]) - spec_mean[spec_index])
-                                               / spec_sd[spec_index], 2)
-            else:
-                cur_data[0][key_index] = round(float(cur_data[1][key_index]) * spec_sd[spec_index] 
-                                               + spec_mean[spec_index], 2)
-            print(cur_data)
-            print(pre_data)
-            print('#########')
+    # The modified data is of type 'str', so correct the input before updating the input_spec_inform
+    original_data = {spec: float(val) if spec!='Format' else val for spec, val in cur_data[0].items()}
+    standardized_data = {spec: float(val) if spec!='Format' else val for spec, val in cur_data[1].items()}
+
+    if pre_data is None:
+        for key, val in original_data.items():
+            if key != 'Format':
+                spec_mean = spec_mean_dict[key]
+                spec_sd = spec_sd_dict[key]
+                standardized_data[key] = (val - spec_mean) / spec_sd    
+    else:
+        modified_data, modified_spec = function.check_table_diff(cur_data, pre_data)
+        
+        if modified_data is not None:
+            spec_mean = spec_mean_dict[modified_spec] 
+            spec_sd = spec_sd_dict[modified_spec] 
+
+            if modified_data == "Original":
+                standardized_data[modified_spec] = (original_data[modified_spec] - spec_mean) / spec_sd
             
-            return cur_data, cur_data, Model.update_data_conditional_style(cur_data)
+            elif modified_data == "Standardized":
+                original_data[modified_spec] = (standardized_data[modified_spec] * spec_sd) + spec_mean
+        else:
+            raise PreventUpdate
+
+    input_spec_inform_output = [original_data, standardized_data]
+    previous_table_output = input_spec_inform_output
     
-    raise PreventUpdate
+    return input_spec_inform_output, previous_table_output
+    
 
 
 @app.callback(Output('rate_and_score_info', 'data'),

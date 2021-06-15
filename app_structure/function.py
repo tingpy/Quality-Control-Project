@@ -780,17 +780,33 @@ def score_name_congugate(name, score):
     return congugate_dic
     
     
-def check_table_diff(cur, pre):
-    vec_len = len(cur)
-    dic_index = -1
-    key_index = ''
-    for i in range(0, vec_len):
-        for j in cur[i].keys():
-            if cur[i][j] != pre[i][j]:
-                dic_index = i
-                key_index = j
+def check_table_diff(cur_data, pre_data):
+    """
+    Check which value of spec in the table "input_spec_inform" is modified.
+    """
+
+    cur_original_data = cur_data[0]
+    cur_standardized_data = cur_data[1]
+
+    pre_original_data = pre_data[0]
+    pre_standardized_data = pre_data[1]
+
+    modified_data = None
+    modified_spec = None
+
+    for spec, cur_val in cur_original_data.items():
+        if spec != 'Format':
+            if pre_original_data[spec] != cur_val:
+                modified_data = 'Original'
+                modified_spec = spec
+ 
+    for spec, cur_val in cur_standardized_data.items():
+        if spec != 'Format':
+            if pre_standardized_data[spec] != cur_val:
+                modified_data = 'Standardized'
+                modified_spec = spec
     
-    return dic_index, key_index
+    return modified_data, modified_spec
 
             
 
