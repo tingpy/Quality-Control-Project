@@ -22,9 +22,9 @@ def generate_element(str):
         key = str_list[i].split(' : ')[0]
         var = str_list[i].split(' : ')[1].split(', ')
         
-        children.append(dbc.Row(html.P(key)))
+        children.append(dbc.Row(html.P(key,style ={'color':'red'})))
         for j in range(math.ceil( (len(var)+1)/cut )):
-            col = [dbc.Col(html.P(k)) for k in var[j*2 : (j+1)*2]]
+            col = [dbc.Row(html.P(k,style ={'color':'red'})) for k in var[j*2 : (j+1)*2]]
             children.append(dbc.Row(col))
     
     return children
@@ -43,7 +43,8 @@ def create_info_card(dic, cnt):
             dbc.Row(html.P("\t\t" + dic['Last Date for Deal Data'])),
             dbc.Row(html.P("Selected Material:")),
             dbc.Row(html.P("\t\t" + dic['Selected Material'])),
-            dbc.Row(html.P("Input Variable:"))] + generate_element(dic['Input Variable'])
+            dbc.Row(html.P("Input Variable:"))] 
+            + generate_element(dic['Input Variable'])
             ),
         
         dbc.CardFooter([
@@ -72,10 +73,11 @@ def create_info_card(dic, cnt):
             id = {'type': 'dynamic-Card',
                   'index': cnt},
             children = card_content,
-            className = 'mb-4',
-            color="dark", 
+            color="black", 
+            outline = True,
             inverse=True
-        ), width = 4, className="mb-4")
+           
+        ), className="mb-4")
     
     return children
 
