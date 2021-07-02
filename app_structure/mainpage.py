@@ -117,8 +117,6 @@ layout = html.Div([
                 ], className="mb-5"),
             ], style = {'display': 'none'}),
 
-        html.A("Creator: Li-Heng Ting"),
-
     ])
 
 ])

@@ -5,7 +5,6 @@ Created on Fri Apr 30 15:50:13 2021
 @author: acer
 """
 
-
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_bootstrap_components as dbc
@@ -32,18 +31,18 @@ def generate_element(str):
     
 def create_info_card(dic, cnt):
     card_content = [
-        dbc.CardHeader('File ' + str(cnt)),
+        dbc.CardHeader('File ' + str(cnt+1)),
         
         dbc.CardBody([
-            dbc.Row(html.P("Date:")),
+            dbc.Row(html.P("Date:", style={'font-weight': 'bold'})),
             dbc.Row(html.P("\t\t" + dic['Date'])),
-            dbc.Row(html.P("Last Date for Spec Data:")),
-            dbc.Row(html.P("\t\t" + dic['Last Date for Spec Data'])),
-            dbc.Row(html.P("Last Date for Deal Data:")),
-            dbc.Row(html.P("\t\t" + dic['Last Date for Deal Data'])),
-            dbc.Row(html.P("Selected Material:")),
+            dbc.Row(html.P("Last Date for Spec Data:", style={'font-weight': 'bold'})),
+            dbc.Row(html.P("\t\t" + dic['Duration for Spec Data'])),
+            dbc.Row(html.P("Last Date for Deal Data:", style={'font-weight': 'bold'})),
+            dbc.Row(html.P("\t\t" + dic['Duration for Deal Data'])),
+            dbc.Row(html.P("Selected Material:", style={'font-weight': 'bold'})),
             dbc.Row(html.P("\t\t" + dic['Selected Material'])),
-            dbc.Row(html.P("Input Variable:"))] 
+            dbc.Row(html.P("Input Variable:", style={'font-weight': 'bold'}))] 
             + generate_element(dic['Input Variable'])
             ),
         
@@ -73,7 +72,7 @@ def create_info_card(dic, cnt):
             id = {'type': 'dynamic-Card',
                   'index': cnt},
             children = card_content,
-            color="black", 
+            color= '#240d33',#"black", 
             outline = True,
             inverse=True
            
@@ -93,7 +92,12 @@ def nothing_available(arg):
     return html.H3('Nothing available, please go back previous page.')
 
 layout = html.Div([
-    html.Div(id='info_card'),
+    dbc.Row(
+        dbc.Col(
+            html.Div(id='info_card'),
+            )
+        ),
+    
     html.Div(
         dcc.ConfirmDialog(id='warning_dialogue')),
     

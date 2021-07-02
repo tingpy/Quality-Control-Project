@@ -501,8 +501,8 @@ def create_info_dic(select_material, spec_last, deal_last, dic):
     now = datetime.datetime.now()
     
     stan_info_dic = {'Date': str(now.year)+'/'+str(now.month)+'/'+str(now.day),
-                         'Last Date for Spec Data': str(spec_last.year)+'/'+str(spec_last.month)+'/'+str(spec_last.day),
-                         'Last Date for Deal Data': str(deal_last.year)+'/'+str(deal_last.month)+'/'+str(deal_last.day),
+                         'Duration for Spec Data': spec_last,
+                         'Duration for Deal Data': deal_last,
                           'Selected Material': select_material,
                           'Input Variable': '\n'.join([i +' : '+ ', '.join(dic[i]) for i in dic.keys()])}
     return stan_info_dic
@@ -540,6 +540,8 @@ def delete_and_rename_file(mypath, delete_value, recover_value,
     sub1 = select_material + '_info'
     sub2 = select_material + '_stan_result'
     sub3 = '.json'
+    sub4 = select_material + '_history'
+    sub5 = '.csv'
     
     reserve_file = []
 
@@ -554,6 +556,10 @@ def delete_and_rename_file(mypath, delete_value, recover_value,
                 os.remove(mypath + '/' + sub2 + str(i+1) + sub3)
             except:
                 print(sub2 + str(i+1) + sub3 + ''' doesn't exist!''')
+            try:
+                os.remove(mypath + '/' + sub4 + str(i+1) + sub5)
+            except:
+                print(sub4 + str(i+1) + sub5 + ''' doesn't exist!''')
         else:
             reserve_file.append(i)
     
@@ -562,6 +568,8 @@ def delete_and_rename_file(mypath, delete_value, recover_value,
                   mypath + '/' + sub1 + str(j+1) + sub3)
         os.rename(mypath + '/' + sub2 + str(reserve_file[j]+1) + sub3,
                   mypath + '/' + sub2 + str(j+1) + sub3)
+        os.rename(mypath + '/' + sub4 + str(reserve_file[j]+1) + sub5,
+                  mypath + '/' + sub4 + str(j+1) + sub5)
     
     return True
 
@@ -628,8 +636,10 @@ def rating_system(input_spec_value, # the spec information of current product
     score_df = pd.DataFrame(columns=['customer id', 'score'])
     
     mean_vec = mean_and_sd['mean']
-    sd_vec = mean_and_sd['sd']        
-            
+    sd_vec = mean_and_sd['sd']
+    input_value_sd = [(input_spec_value[i] - mean_vec[i]) / sd_vec[i] 
+                     for i in range(0, len(sd_vec))]     
+
     customer_No = list(customer_para.keys())
     customer_cnt = 0
     for i in customer_No:
@@ -639,17 +649,19 @@ def rating_system(input_spec_value, # the spec information of current product
             spec_index = reserve_spec.index(j)
             current_spec_index = 0
             create_cnt = 0
+            sd_val_store = []
             for k in range(0, len(input_spec_value)):
                 if k == spec_index:
                     continue
                 
                 current_spec_index = current_spec_index + 1
-                input_value_sd = (input_spec_value[k] - mean_vec[k]) / sd_vec[k]
+                # input_value_sd = (input_spec_value[k] - mean_vec[k]) / sd_vec[k]
+                # sd_val_store.append(input_value_sd)
                 
                 if create_cnt == 0:
-                    mean_array = np.array(customer_para[i]['A['+str(spec_index+1)+','+str(current_spec_index)+']'])*input_value_sd
+                    mean_array = np.array(customer_para[i]['A['+str(spec_index+1)+','+str(current_spec_index)+']'])*input_value_sd[k]
                 else:
-                    mean_array = mean_array + np.array(customer_para[i]['A['+str(spec_index+1)+','+str(current_spec_index)+']'])*input_value_sd
+                    mean_array = mean_array + np.array(customer_para[i]['A['+str(spec_index+1)+','+str(current_spec_index)+']'])*input_value_sd[k]
                 create_cnt = create_cnt + 1
             
             mean_value = np.mean(mean_array)
@@ -658,9 +670,9 @@ def rating_system(input_spec_value, # the spec information of current product
             store_value.append(mean_value)
             store_value.append(sigma_value)
             if ranking_method == 1:
-                score_value.append((input_spec_value[spec_index] - mean_value)/sigma_value)
+                score_value.append((input_value_sd[spec_index] - mean_value)/sigma_value)
             else:
-                score_value.append(input_spec_value[spec_index] - mean_value)
+                score_value.append(input_value_sd[spec_index] - mean_value)
             
         rating_df.loc[customer_cnt] = [i] + store_value + score_value
         customer_cnt = customer_cnt + 1
@@ -671,7 +683,7 @@ def rating_system(input_spec_value, # the spec information of current product
         score_array = np.power(np.asarray(rating_df[i+'_score']), 2) + score_array
     score_array = np.sqrt(score_array)
     score_df['score'] = score_array
-    
+
     return rating_df, score_df
 
 # rate, score = rating_system([1,2,3,4,5,6,7,8],
@@ -780,6 +792,7 @@ def score_name_congugate(name, score):
     return congugate_dic
     
     
+
 def check_table_diff(cur_data, pre_data):
     """
     Check which value of spec in the table "input_spec_inform" is modified.
@@ -799,15 +812,26 @@ def check_table_diff(cur_data, pre_data):
             if pre_original_data[spec] != cur_val:
                 modified_data = 'Original'
                 modified_spec = spec
- 
+
     for spec, cur_val in cur_standardized_data.items():
         if spec != 'Format':
             if pre_standardized_data[spec] != cur_val:
                 modified_data = 'Standardized'
                 modified_spec = spec
-    
+
     return modified_data, modified_spec
 
+
+def customer_name_to_id(cus_df, cus_name):
+    name_list = list(cus_df['名稱'])
+    try:
+        # 2 is column index for customer id
+        cus_id = cus_df.iloc[name_list.index(cus_name), 2]
+        cus_id = str(cus_id)
+    except:
+        cus_id = cus_name
+        
+    return cus_id
             
 
             

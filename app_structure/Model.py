@@ -31,6 +31,7 @@ def dic_to_table(dic, choose_cnt):
     column_dic = [{'name': i, 'id': i} for i in column]
     
     table = dash_table.DataTable(
+                id='customer_list',
                 columns=column_dic,
                 data=data,
             )
@@ -52,12 +53,14 @@ def figure_generate(dic, rate, select_material, choose_cnt):
             rate = rate_df
             rate = rate.loc[rate['class'] == i, [True for i in range(rate.shape[1])]]
         # append column 'rank'
-        rate.sort_values(by='score', ascending=True)
+        rate = rate.sort_values(by='score', ascending=True)
+        rate = rate.reset_index(drop = True)
         rate['rank'] = [i+1 for i in range(rate.shape[0])]
+        
             
         if len(spec_name) == 1:
             mean_vec = list(rate[spec_name[0] + '_mean'])[0: choose_cnt]
-            sd_vec = list(rate[spec_name[0] + '_sd'])[0: choose_cnt]
+            sd_vec = list(rate[spec_name[0] + '_sigma'])[0: choose_cnt]
             data = [mean_vec[i] + sd_vec[i]*np.random.randn(1000) 
                     for i in range(choose_cnt)]
             label = list(rate['real name'])[0: choose_cnt]
@@ -131,7 +134,6 @@ def figure_generate(dic, rate, select_material, choose_cnt):
 def create_figure(class_dic, class_score, all_dic, all_score, score_dic,
                   customer, purchase_info, select_material, choose_cnt):
     rate = score_dic['rate']
-    
     all_no = [str(j) for j in customer['客戶編號']]
     all_name = list(customer['名稱'])
     
@@ -143,7 +145,7 @@ def create_figure(class_dic, class_score, all_dic, all_score, score_dic,
         except:
             real_name.append(i)
     rate['real name'] = real_name
-    rate['score'] = all_score['ALL']
+    rate = pd.merge(rate, score_dic['score'], on='customer id')
     rate['purchase cnt'] = purchase_info['purchase_cnt']
     
     # add customer class to dataframe 'rate'
@@ -183,52 +185,46 @@ def create_figure(class_dic, class_score, all_dic, all_score, score_dic,
             all_figure + card + class_dropdown + seperate
         )
         
-        return sub_children    
-
-
-def update_data_conditional_style(cur_data):
-    return {}
-# def discrete_background_color_bins(dic, n_bins, columns='all'):
-#     import colorlover
-#     ranges = [-10000, -4, -3, -2, 2, 3, 4, 10000]
-#     background = colorlover.scales['3']['seq']['Reds'].reverse() + [''] + colorlover.scales['3']['seq']['Reds']
-#     styles = []
-#     legend = []
-#     df = pd.DataFrame(dic)
-#     col_name = df.columns
+        return sub_children  
     
-#     for i in 
-#     for i in range(1, len(bounds)):
-#         min_bound = ranges[i - 1]
-#         max_bound = ranges[i]
-#         backgroundColor = background[i]
 
-#         for column in df.columns:
-#             styles.append({
-#                 'if': {
-#                     'filter_query': (
-#                         '{{{column}}} >= {min_bound}' +
-#                         (' && {{{column}}} < {max_bound}' if (i < len(bounds) - 1) else '')
-#                     ).format(column=column, min_bound=min_bound, max_bound=max_bound),
-#                     'column_id': column
-#                 },
-#                 'backgroundColor': backgroundColor,
-#                 'color': color
-#             })
-#         legend.append(
-#             html.Div(style={'display': 'inline-block', 'width': '60px'}, children=[
-#                 html.Div(
-#                     style={
-#                         'backgroundColor': backgroundColor,
-#                         'borderLeft': '1px rgb(50, 50, 50) solid',
-#                         'height': '10px'
-#                     }
-#                 ),
-#                 html.Small(round(min_bound, 2), style={'paddingLeft': '2px'})
-#             ])
-#         )
+def generate_history_row(customer_id, cust_history, input_val,
+                         col_name, rank, cust_name):
+    row = [cust_name, rank+1]
+    
+    df = cust_history[cust_history['buyer'] == customer_id]
+    
+    digit = 4
+    focus = input_val['spec name']
+    mean = input_val['mean']
+    sd = input_val['sd']
+    mean_val = [round(np.mean(df[j]) * sd[i] + mean[i], digit) for i, j in enumerate(focus)]
+    
+    value = input_val['value']
+    prob = []
+    total_bool = [False for i in range(0, df.shape[0])]
+    for i, j in enumerate(focus):
+        standardize = (value[i] - mean[i]) / sd[i]
+        if standardize < 0:
+            temp_bool = df[j] <= standardize
+            prob.append(round(np.mean(temp_bool), digit))
+        else:
+            temp_bool = df[j] >= standardize
+            prob.append(round(np.mean(temp_bool), digit))
+        total_bool = np.logical_or(total_bool, temp_bool)
+            
+    if len(focus) > 1:
+        prob = prob + [round(np.mean(total_bool), digit)]
+    
+    row = row + mean_val + prob
+    dic = {}
+    for i, j in enumerate(row):
+        dic[col_name[i]] = j
+        
+    return dic
+    
 
-#     return (styles, html.Div(legend, style={'padding': '5px 0 5px 0'}))
+
 
 layout = dbc.Container(id='model_body',
                        children=[
@@ -303,6 +299,14 @@ layout = dbc.Container(id='model_body',
                            html.Br(),
                            
                            dbc.Row([
+                               dbc.Col(
+                                   html.Div(id='ranking_method_intro')
+                                   )
+                               ]),
+                           
+                           html.Br(),
+                           
+                           dbc.Row([
                                dbc.Col(html.H5('Choose number of customer you want to show in the table.'))
                                ]),
                             
@@ -332,7 +336,7 @@ layout = dbc.Container(id='model_body',
                                dbc.Col(
                                    html.Button('Submit Spec', 
                                                id='submit_spec',
-                                               n_clicks=0))
+                                               n_clicks=1))
                               ]),
                            
                            html.Br(),
@@ -352,8 +356,64 @@ layout = dbc.Container(id='model_body',
                                    #     dcc.Store(id='focus_spec_intermediate'),
                                    #     dcc.Store(id='rate_and_score_info')
                                    #     ]),
-                                   
                                    html.Div(id="recommendation_system_table"),
+                                   
+                                   html.Br(),
+                                   
+                                   html.Div(id='history_category_div',
+                                            children = [
+                                                dbc.Row(
+                                                    dbc.Col(
+                                                        dbc.Card(
+                                                            html.H3(children='History Countercheck',
+                                                                    className="text-center text-light bg-dark"), 
+                                                        body=True, color="dark")
+                                                        )
+                                                    ),
+                                                
+                                                html.Br(),
+                                                
+                                                dbc.Row(
+                                                    dbc.Col([
+                                                        html.Div('Choose the class of customers you want to inspect'),
+                                                        dcc.Dropdown(id='history_plot_category'),
+                            
+                                                        html.Br(),
+                                                        ])
+                                                    ),
+                                                
+                                                dcc.ConfirmDialog(
+                                                        id='append_cust_warning',
+                                                    ),
+                                                        
+                                                dbc.Row([
+                                                    dbc.Col([
+                                                        html.Div('Choose the customer you want to inspect'),
+                                                        html.Div(id='customer_in_category_dropdown_div')
+                                                       ]),
+                                                   
+                                                   dbc.Col(
+                                                       dbc.Row([
+                                                           html.Div('Key in the rank of the customer you want inspect'),
+                                                           dcc.Input(id='customer_in_category_rank'),
+                                                           html.Div(id='max_rank_notification')]),
+                                                       ),
+                                               
+                                                   dbc.Col(html.Button('Append New Customer',
+                                                                      id='customer_in_category_button',
+                                                                      n_clicks=0)
+                                                       )
+                                                    ]),
+                                                
+                                                dbc.Row(
+                                                    dbc.Col([
+                                                        html.H4('history table'),
+                                                        html.Div(id='history_stat_table_div'),
+                                                        ])
+                                                    ),
+                                                
+                                               ], style = {'display': 'none'}),
+                                   
                                    html.Div(id='recommendation_system_plot'),
                                    
                                    ])
