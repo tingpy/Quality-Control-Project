@@ -40,6 +40,7 @@ def dic_to_table(dic, choose_cnt):
 
 def figure_generate(dic, rate, select_material, choose_cnt):
     # check how many focus_spec is there
+    
     sub = '_mean'
     spec_name = [i.split(sub)[0] for i in rate.columns if sub in i]
     
@@ -61,8 +62,10 @@ def figure_generate(dic, rate, select_material, choose_cnt):
         if len(spec_name) == 1:
             mean_vec = list(rate[spec_name[0] + '_mean'])[0: choose_cnt]
             sd_vec = list(rate[spec_name[0] + '_sigma'])[0: choose_cnt]
-            data = [mean_vec[i] + sd_vec[i]*np.random.randn(1000) 
-                    for i in range(choose_cnt)]
+ 
+            choose_cnt_curr = min(choose_cnt, len(mean_vec))
+            data = [mean_vec[j] + sd_vec[j]*np.random.randn(1000) 
+                    for j in range(choose_cnt_curr)]
             label = list(rate['real name'])[0: choose_cnt]
             
             graph = create_distplot(data, 
