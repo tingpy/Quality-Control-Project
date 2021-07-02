@@ -82,7 +82,7 @@ def create_input_block(dic, key, key_cnt):
                                     'index': key_cnt,
                                   },
                                   value= ", ".join(dic[key]),
-                                  style={'width': '40%'}))
+                                  style={'width': '100%'}))
                 ])
 
 def generate_freeze_table(focus_spec, select_dic):
@@ -185,8 +185,9 @@ material_dropdown =html.Div([
                 children=html.A(
                     children='Skip Model',
                     href='/Manage_Data',
-                    style={'width': '200px', 'height': '50px','margin-right': '7px',
-                           'backgroundColor': 'grey', 'color':'white'}
+                    style={'display':'inline-block', 'width': '200px', 'margin':'auto'}
+                    # style={'width': '200px', 'height': '50px','margin-right': '7px',
+                    #        'backgroundColor': 'grey', 'color':'white'}
                 ),
                 id='skip_model',
                 n_clicks=0),
@@ -386,8 +387,12 @@ intermediate_layers = dbc.Row([
             Please check again!''',
         ),
         
-        html.Div(id='input_space'),
-        html.Div(id='show_freeze_table')
+        html.Div(id='input_space',
+                 style={'height' : '100%',
+                                    'width': '100%','font-weight': '1000','padding': '30px'}),
+        html.Div(id='show_freeze_table',style={'height' : '100%','padding': '30px'})
+        # html.Div(id='input_space'),
+        # html.Div(id='show_freeze_table')
     ])
 ])
 
@@ -428,7 +433,7 @@ button_collections = html.Div(id='button_collection',
                                             id='input_confirm',
                                             n_clicks=0,
                                             style={'width': '200px', 'height': '50px', 'margin-right': '7px',
-                                                   'backgroundColor': 'grey', 'color':'white'}),
+                                                   'backgroundColor': 'grey', 'color':'white' , 'float':'right'}),
                                         ),
                                     ], align = 'end') 
                                 ]
