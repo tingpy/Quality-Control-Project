@@ -15,6 +15,7 @@ from dash.exceptions import PreventUpdate
 import dash_table
 from dash_table.Format import Format
 
+
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -29,14 +30,14 @@ from app_structure import Navi_bar, Import_New_Data, EDA, Manage_Data, Model, ma
 
 
 import os
-os.chdir("./")
-
+# os.chdir("./")
+os.chdir("C:/Users/acer/Desktop/Chimei/QC data")
 
 # prepare for the dataframe
-deal = 0
-spec = 0
-agent = 0
-customer = 0
+# deal = 0
+# spec = 0
+# agent = 0
+# customer = 0
 import_deal = 0
 import_spec = 0
 import_agent = 0
@@ -47,6 +48,7 @@ bbb = []
 ccc = 0
 
 stan_result = []
+cust_history = 0
 
 # needed only if running this as a single page app
 # external_stylesheets = ['.\\assets\\bootstrap.min.css'] # dbc.themes.LUX
@@ -100,17 +102,24 @@ app.layout = html.Div([
                             storage_type='memory'),
                   dcc.Store(id='total_ranking_store',
                             storage_type='memory'),
+                  dcc.Store(id='focus_input_value_store',
+                            storage_type='memory'),
+                  dcc.Store(id='history_stat_store1',
+                            storage_type='memory'),
+                  dcc.Store(id='history_stat_store2',
+                            storage_type='memory'),
                  ]),
     
     # for the navbar
     dcc.Location(id='url', refresh=False),
     Navi_bar.navbar,
     html.Div(id='page-content'),
-    # dbc.Container(,
-    #             color="dark",
-    #             dark=True,
-    #             className="mb-4",)
-
+    
+    html.Br(),
+    html.Br(),
+    dbc.Container(
+        html.A("Creator: Li-Heng Ting")
+        )
 ])
 
 ######## Callback for NavBar ###############################
@@ -118,6 +127,7 @@ app.layout = html.Div([
 @app.callback(Output('page-content', 'children'),
               [Input('url', 'pathname')])
 def display_page(pathname):
+    print(pathname)
     if pathname == '/Import_New_Data':
         return Import_New_Data.layout
     elif pathname == '/EDA':
@@ -169,6 +179,8 @@ def show_loc_warning(loc, n_click):
             
             global spec, deal, agent, customer
             spec, deal, agent, customer = function.import_data(loc)
+            spec = spec.sort_values('date', ascending=True)
+            deal = deal.sort_values('date', ascending=True)
             
             option_for_dropdown = [{'label': i, 'value': i} for i in deal['material'].unique()]
             return False, False, {'display': 'block'}, option_for_dropdown, loc_new
@@ -490,6 +502,7 @@ def update_input_var(select_material, focus_spec, exist_spec, n_clicks,
                       duration, max_var_cnt = max_var_cnt):
     
     if n_clicks > 0 and len(duration) == 2:
+        print('cor_df')
         df = spec[spec['material'] == select_material]
         df = df[df['date'] >= duration['First Date']]
         df = df[df['date'] <= duration['Last Date']]
@@ -511,22 +524,24 @@ def update_input_var(select_material, focus_spec, exist_spec, n_clicks,
 
 # return the dcc.Input for each focus spec
 @app.callback([Output('input_space', 'children'),
-               Output('button_collection', 'style'),
-               Output('confirm_spec_button', 'n_clicks')],
+               Output('button_collection', 'style')],
+               # Output('confirm_spec_button', 'n_clicks')],
               [Input('intermediate_layer3', 'data'),
+               Input('data_duration', 'data'),
                Input('confirm_spec_button', 'n_clicks')],
               prevent_initial_call = True)
 
-def update_show_input_var(dic_name, n_clicks):
-    if n_clicks > 0:            
+def update_show_input_var(dic_name, duration, n_clicks):
+    if n_clicks > 0 and len(duration) == 2:
+        print('create input')
         with open(dic_name, 'r') as j:
             dic = json.load(j)
             
         key_list = list(dic.keys())
         children = [EDA.create_input_block(dic, key_list[i], i) for i in range(len(key_list))] 
-        return children, {'display': 'block'}, 0
+        return children, {'display': 'block'}
     else:
-        return PreventUpdate
+        return [], {'display': 'none'}
 
 
 # pattern-matching callback, obtain the renew_variable and return new suggestion
@@ -558,7 +573,7 @@ def renew_show_input_var(renew_click, names, values,
         
         return input_vec
     else:
-        return PreventUpdate
+        raise PreventUpdate
 
 # warning for freezing renew_input_variable button    
 @app.callback(Output('freeze_confirm', 'displayed'),
@@ -612,24 +627,28 @@ def display_confirm_model(model_click):
               [Input('run_model', 'n_clicks'),
                Input('material_dropdown', 'value'),
                Input('intermediate_layer3', 'data')],
+              State('data_duration', 'data'),
                prevent_initial_call = True)
 
-def update_stan_name_and_dialogue(model_click, select_material, dic_name):
+def update_stan_name_and_dialogue(model_click, select_material, dic_name,
+                                  duration):
     
     if model_click > 0:
         with open(dic_name, 'r') as j:
             dic = json.load(j)
-            
-        spec_last = spec['date'].max()
-        deal_last = deal['date'].max()
+       
+        spec_last = duration['First Date'] + ' to ' + duration['Last Date']
+        deal_last = duration['First Date'] + ' to ' + duration['Last Date']
         info_dic = function.create_info_dic(select_material, spec_last, deal_last, dic)
 
         next_name_cnt = function.name_next_stan_file(os.getcwd())
         next_name = select_material + '_stan_result' + next_name_cnt + '.json'
         next_info_name = select_material + '_info' + next_name_cnt + '.json'
+        next_history_name = select_material + '_history' + next_name_cnt + '.csv'
         
         final_dic = {'next_name': next_name,
                      'next_info_name': next_info_name,
+                     'next_history_name': next_history_name,
                      'info_dic': info_dic}
         
         children = EDA.create_model_dialogue(info_dic)
@@ -645,20 +664,27 @@ def update_stan_name_and_dialogue(model_click, select_material, dic_name):
                Input('intermediate_layer3', 'data'),
                Input('intermediate_layer4', 'data'),
                Input('run_model', 'n_clicks'),
-               Input('model_confirm_dialogue', 'submit_n_clicks')])
+               Input('model_confirm_dialogue', 'submit_n_clicks')],
+              State('data_duration', 'data'))
 
-def update_run_model(select_material, dic_name, stan_info, model_click, dialogue_click):
+def update_run_model(select_material, dic_name, stan_info, model_click, dialogue_click,
+                     duration):
     
     if model_click > 0 and dialogue_click is not None:
         print('run model')
         with open(dic_name, 'r') as j:
             dic = json.load(j)
         
+        spec_input = spec[spec['date'] >= duration['First Date']]
+        spec_input = spec_input[spec_input['date'] <= duration['Last Date']]
         concat_df, mean_var_dic = function.spec_deal_concat(select_material, 
-                                                           spec, deal, dic, 'Standardized')
+                                                           spec_input, deal, dic, 'Standardized')
 
-        global stan_result
+        concat_df.to_csv('.//' + stan_info['next_history_name'])
+            
+        global stan_result, cust_history
         stan_result, purchase_info_dic = function.run_stan(concat_df, dic)
+        cust_history = concat_df
         
         stan_info['info_dic']['Mean and Var'] = mean_var_dic
         stan_info['info_dic']['purchase_info'] = purchase_info_dic
@@ -670,8 +696,6 @@ def update_run_model(select_material, dic_name, stan_info, model_click, dialogue
         
         stan_info['info_dic']['activate time'] = datetime.now().timestamp()
         
-        global aaa
-        aaa = stan_info['info_dic']
         return stan_info['info_dic'], {'float': 'right'}
     else:
         raise PreventUpdate
@@ -686,7 +710,7 @@ def update_run_model(select_material, dic_name, stan_info, model_click, dialogue
                Input('main_location', 'data')])
 
 def update_info_card(select_material, loc):
-    
+    print('info card')
     mypath = loc + '/' + select_material
     dic_list = function.find_usable_file(mypath)
     
@@ -698,11 +722,14 @@ def update_info_card(select_material, loc):
         cnt_for_row = 3
         for i,j in enumerate(dic_list):
             children_col.append(dbc.Col(Manage_Data.create_info_card(j, i)))
-            if i % cnt_for_row == 2:
-                children_row.append(dbc.Row(children_col,
-                                            style = {'padding':'10px'}))
+            if i % cnt_for_row == (cnt_for_row - 1):
+                children_row.append(dbc.Row(children_col))
                 children_col = []
-                
+        
+        for j in range( i % cnt_for_row, (cnt_for_row - 1) ):
+            children_col.append(dbc.Col([]))
+        children_row.append(dbc.Row(children_col))  
+        
         return children_row
 
     
@@ -716,9 +743,9 @@ def update_info_card(select_material, loc):
 
 def update_card_color(choose_value, delete_value, recover_value,
                       current_color):
-    choose_color = 'grey'
-    delete_color = 'SlateBlue'
-    recover_color = 'black'
+    choose_color = '#a786c7'
+    delete_color = '#6e6973'
+    recover_color = '#240d33'
 
     if choose_value > 0:
         return [choose_color]
@@ -756,6 +783,7 @@ def hide_choose_button(choose_value):
               Input({'type': 'dynamic-choose-button', 'index': ALL}, 'n_clicks'))
 
 def renew_import_confirm_href(choose_value):
+    print('change href')
     if sum(choose_value) == 1:
         return '/Model'
     else:
@@ -777,6 +805,7 @@ def execute_and_move(choose_value, delete_value, recover_value, confirm_click,
                       select_material, loc):
     
     if confirm_click > 0:
+        print('import data')
         mypath = loc + '/' + select_material
         os.chdir(mypath)
         
@@ -786,14 +815,17 @@ def execute_and_move(choose_value, delete_value, recover_value, confirm_click,
             return Manage_Data.warning_dialogue(0), True, None
         elif sum(choose_value) == 1:
             global stan_result
+            global cust_history
             
             file_name = select_material + '_stan_result' + str(choose_value.index(1)+1) + '.json'
             info_name = select_material + '_info' + str(choose_value.index(1)+1) + '.json'
+            hist_name = select_material + '_history' + str(choose_value.index(1)+1) + '.csv'
             
             with open(file_name, 'r') as j:
                 stan_result = json.load(j)
             with open(info_name, 'r') as j:
                 info_dic = json.load(j)
+            cust_history = pd.read_csv('.//' + hist_name)
             
             info_dic['activate time'] = datetime.now().timestamp()
             
@@ -822,6 +854,7 @@ def update_init_customer_slider(value):
     vec = [i*segment for i in range(1,value)]
     
     return vec
+
 
 @app.callback([Output('input_spec_inform_div', 'children'),
                 Output('focus_spec_intermediate', 'data'),
@@ -853,6 +886,7 @@ def update_input_df(info1, info2, select_material):
         data=data_dic,
         editable=True
     )
+    print('generate spec table')
                                     # style_data_conditional=[
                                     #     ])
     
@@ -901,34 +935,64 @@ def update_input_spec_inform(timestamp, cur_data, dic_info, pre_data):
 
     input_spec_inform_output = [original_data, standardized_data]
     previous_table_output = input_spec_inform_output
+    print('renew specs')
     
     return input_spec_inform_output, previous_table_output
-    
 
 
-@app.callback(Output('rate_and_score_info', 'data'),
+@app.callback([Output('rate_and_score_info', 'data'),
+               Output('focus_input_value_store', 'data')],
               [Input('submit_spec', 'n_clicks'),
-                Input('input_spec_inform', 'data'),
-                Input('input_spec_inform', 'columns'),
                 Input('focus_spec_intermediate', 'data'),
                 Input('ranking_method', 'value')],
+              [State('input_spec_inform', 'data'),
+               State('input_spec_inform', 'columns')],
               prevent_initial_call = True)
 
-def update_input_spec(submit_click, row, column, dic, method_value):
+def update_input_spec(submit_click, dic, method_value, row, column):
     
     if submit_click > 0 and isinstance(stan_result, dict):
         focus_spec = dic['focus']
         input_spec = dic['input']
         input_spec_value = [float(row[0][i]) for i in input_spec]
+ 
+        column = [element['name'] for element in column]
+        focus_index = [column.index(i)-1 for i in focus_spec]
+        focus_input_value = [input_spec_value[i] for i in focus_index]
+        mean_value = [dic['Mean and Var']['mean'][i] for i in focus_index]
+        sd_value = [dic['Mean and Var']['sd'][i] for i in focus_index]
+        focus_store = {'spec name': focus_spec, 'value': focus_input_value,
+                       'mean': mean_value ,'sd': sd_value}
         
         rate, score = function.rating_system(input_spec_value, focus_spec,
                                               stan_result, input_spec,
                                               dic['Mean and Var'], method_value)
         
-        return {'rate': rate.to_dict(), 'score': score.to_dict()}
+        return {'rate': rate.to_dict(), 'score': score.to_dict()}, focus_store
     else:
         raise PreventUpdate
-        
+
+
+@app.callback(Output('ranking_method_intro', 'children'),
+              Input('ranking_method', 'value'))
+def update_ranking_method_intro(value):
+    print('create intro')
+
+    if value == 1:
+        header = 'Method 1: Standardized Score'
+        intro = '''This method applied the concept of z-score. Customers' standardard deviation will be considered.
+        The score formula = (input - mean of that customer) / sd of that customer'''
+    else:
+        header = 'Method 2: Mean Distance'
+        intro = '''This method only consider the distance between your input and customers' mean preference.
+        The score formulaa = input - mean of that customer'''
+    
+    children = [dbc.Row(html.H5(header)),
+                dbc.Row(html.P(intro))]
+    
+    return children
+
+
 @app.callback(Output('ranking_cnt', 'options'),
               [Input('customer_slider', 'value'),
                Input('purchase_info', 'data')])
@@ -937,12 +1001,9 @@ def update_max_cnt(cut_off, total):
     cut_off = [0] + cut_off + [1]
     cnt_vec = []
 
-    print(total)
     for i in range(0, len(cut_off)-1):
         cnt_vec.append(round( total*(cut_off[i+1] - cut_off[i]) ))
     
-    global ccc
-    ccc = cnt_vec
     cnt_vec = min(cnt_vec)
     if cnt_vec > 5:
         options = [{'label': i, 'value': i} for i in range(5, cnt_vec+1)]
@@ -954,8 +1015,7 @@ def update_max_cnt(cut_off, total):
 
 @app.callback([Output('recommendation_system_table', 'children'),
                 Output('recommendation_system_plot', 'children'),
-                Output('total_ranking_store', 'data'),
-                Output('submit_spec', 'n_clicks')],
+                Output('total_ranking_store', 'data')],
               [Input('submit_spec', 'n_clicks'),
                 Input('customer_slider', 'value'),
                 Input('focus_spec_intermediate', 'data'),
@@ -966,9 +1026,10 @@ def update_max_cnt(cut_off, total):
 def update_recommendation_system(submit_click, cut_off, info_dic,
                                  score_dic, select_material, choose_cnt):
 
-    if submit_click > 0:
+    if submit_click % 2 == 0:
         for i in score_dic.keys():
             score_dic[i] = pd.DataFrame(score_dic[i])
+
         cut_off = [round(i,2) for i in cut_off]
         
         cust_dic, quantile_record = function.cust_to_class(cut_off, info_dic['purchase_info'])
@@ -982,6 +1043,7 @@ def update_recommendation_system(submit_click, cut_off, info_dic,
                                                       'total', False, customer)
         rating_all_dic, all_score = function.cust_rating(cust_dic, score_dic['score'],
                                               'total', True, customer)
+
         figure_children = Model.create_figure(rating_all_class_dic,  all_class_score,
                                               rating_all_dic, all_score,
                                               score_dic, customer,
@@ -991,9 +1053,181 @@ def update_recommendation_system(submit_click, cut_off, info_dic,
         
         store_dic = {'by_class': rating_all_class_dic, 'all': rating_all_dic}
         
-        return table_children, figure_children, store_dic, 0
+        print('rating')
+        return table_children, figure_children, store_dic
     else:
         raise PreventUpdate
+        
+    
+@app.callback([Output('history_plot_category', 'options'),
+               Output('history_plot_category', 'value')],
+                [Input('submit_spec', 'n_clicks'),
+                Input('total_ranking_store', 'data')])
+
+def update_customer_category_dropdown(n_clicks, data):
+    
+    if n_clicks % 2 == 0 and data is not None:
+        option = [i for i in data['by_class'].keys()]
+        options = [{'label': i, 'value': i} for i in option]
+        value = value=option[0]
+        
+        print('category dropdown')
+        return options, value
+    
+    raise PreventUpdate
+    
+ 
+@app.callback([Output('customer_in_category_dropdown_div', 'children'),
+               Output('max_rank_notification', 'children'),
+               Output('history_category_div', 'style')],
+              [Input('total_ranking_store', 'data'),
+               Input('focus_spec_intermediate', 'data'),
+               Input('history_plot_category', 'value'),
+               Input('ranking_cnt', 'value'),
+               Input('submit_spec', 'n_clicks')])
+
+def update_customer_in_category_dropdown(data, spec_data, class_name,
+                                         show_cnt, n_click):
+    
+    if n_click % 2 == 0 and data is not None:
+        cust_vec = data['by_class'][class_name]
+        max_rank = len(cust_vec)
+        notification = '(Max Rank = ' + str(max_rank) + ')'
+        
+        option = [{'label': i, 'value': i} for i in cust_vec[show_cnt:]]
+        children = [dcc.Dropdown(id='customer_in_category_dropdown',
+                                 options = option)]
+        
+        print('show category div')
+        return children, html.P(notification), {'display': 'block'}
+    
+    raise PreventUpdate
+    
+    
+
+@app.callback(Output('history_stat_table_div', 'children'),
+              [Input('submit_spec', 'n_clicks'),
+                Input('ranking_cnt', 'value'),
+                Input('history_plot_category', 'value')],
+              [State('focus_spec_intermediate', 'data'),
+               State('total_ranking_store', 'data'),
+               State('focus_input_value_store', 'data')])
+
+
+def update_stat_table(n_click, max_val, class_loc,
+                      data, rank_info, input_data):
+    
+    if n_click % 2 == 0:
+        print(n_click)
+        focus_spec = data['focus']
+        basic = ['Company Name', 'Current Rank']
+        mean = ['Mean for "' + i + '"' for i in focus_spec]
+        ratio = ['Under Ratio for "' + i + '"' for i in focus_spec]
+        if len(focus_spec) > 1:
+            ratio = ratio + ['Under Ratio for all focus spec']
+        column_name = basic + mean + ratio
+        
+        column = [{'name': i, 'id': i} for i in column_name]
+        
+        customer_name = rank_info['by_class'][class_loc][0:max_val]
+        table_row = []
+        for i, j in enumerate(customer_name):
+            customer_id = function.customer_name_to_id(customer, j)
+            table_row.append(Model.generate_history_row(customer_id, cust_history, 
+                                                        input_data, column_name, i, j))
+            
+        children = [dash_table.DataTable(
+                        id='history_stat_table',
+                        columns=column,
+                        data=table_row,
+                        row_deletable=True)]
+                            
+        return children
+    
+    raise PreventUpdate
+
+@app.callback(Output('customer_in_category_dropdown', 'options'),
+              [Input('history_plot_category', 'value'),
+               Input('history_stat_table', 'data')],
+              [State('total_ranking_store', 'data')])
+
+def update_category_customer_dropdown(class_loc, his_data, rank_data):
+    
+    if his_data is not None:
+        name_by_class = rank_data['by_class'][class_loc]
+        for element in his_data:
+            if element['Company Name'] in name_by_class:
+                name_by_class.remove(element['Company Name'])
+        
+        option_list = [{'label': i, 'value': i} for i in name_by_class]
+        
+        return option_list
+    
+    raise PreventUpdate
+
+
+@app.callback([Output('history_stat_table', 'data'),
+               Output('customer_in_category_rank', 'value'),
+               Output('customer_in_category_dropdown', 'value'),
+               Output('customer_in_category_button', 'n_clicks'),
+               Output('append_cust_warning', 'displayed'),
+               Output('append_cust_warning', 'message')],
+              [Input('history_plot_category', 'value'),
+                Input('customer_in_category_dropdown', 'value'),
+                Input('customer_in_category_rank', 'value'),
+                Input('customer_in_category_button', 'n_clicks')],
+              [State('total_ranking_store', 'data'),
+               State('history_stat_table', 'data'),
+               State('input_spec_inform', 'data'),
+               State('focus_input_value_store', 'data'),
+               State('customer_in_category_dropdown', 'options')])
+
+def update_history_customer(class_loc, dropdown_val, input_val,
+                              n_click, rank_data, table_data, 
+                              spec_data, input_data, cur_option):
+    if n_click > 0:
+        warning1 = '''You didn't key in anything.'''
+        warning2 = 'The rank you entered is invalid! Check the maximum below!'
+        warning3 = 'The company you wish to append is already on the table.'
+        column_name = [name for name in table_data[0].keys()]
+        
+        # if you didn't key in any value in dcc.input,  
+        # then we take the value on the dropdown
+        if input_val is None:
+            if dropdown_val is not None:
+                rank = rank_data['by_class'][class_loc].index(dropdown_val) 
+                cust_name = dropdown_val
+                cust_id = function.customer_name_to_id(customer, cust_name)
+            else:
+                return table_data, None, None, 0, True, warning1
+        else:
+            rank = int(input_val) - 1
+            try:
+                cust_name = rank_data['by_class'][class_loc][rank]
+            except:
+                return table_data, None, None, 0, True, warning2
+            
+            cust_id = function.customer_name_to_id(customer, cust_name)
+            # if the customer is on the table now, ignore this request
+            for element in table_data:
+                if cust_name == element['Company Name']:
+                    return table_data, None, None, 0, True, warning3
+                
+        append_dic = Model.generate_history_row(cust_id, cust_history, input_data,
+                                                column_name, rank, cust_name)
+    
+        new_table_data = table_data + [append_dic]
+        
+        # should be sorted by rank before return
+        tmp_df = pd.DataFrame(new_table_data)
+        tmp_df = tmp_df.sort_values(by='Current Rank')
+        new_table_data = tmp_df.to_dict('records')
+        
+        return new_table_data, None, None, 0, False, ''
+    
+    raise PreventUpdate
+    
+
         
 @app.callback(Output({'type': 'dynamic_plot', 'index': ALL}, 'style'),
               [Input('class_plot', 'value'),
