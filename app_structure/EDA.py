@@ -224,7 +224,8 @@ material_slider = dbc.Row([
                 2020 : '2020',
                 int(datetime.now().strftime('%Y')) : datetime.now().strftime('%Y')
             },
-            value=[2019, int(datetime.now().strftime('%Y'))]
+            value=[2019, int(datetime.now().strftime('%Y'))],
+            persistence_type='local',
         )
     ])
 ])
@@ -386,6 +387,12 @@ intermediate_layers = dbc.Row([
             message='''Your selection is invalid, no data is included in this duration!
             Please check again!''',
         ),
+        
+        html.Br(),
+        
+        html.Div(id='show_duration_info'),
+        
+        html.Br(),
         
         html.Div(id='input_space',
                  style={'height' : '100%',

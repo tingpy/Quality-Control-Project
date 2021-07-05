@@ -466,7 +466,7 @@ def run_stan(concat_df, dic,
     purchase_cnt = []
     customer_name_list = []
 ##################################################################
-    cnt1 = 0
+    # cnt1 = 0
 ##################################################################
     for i in unique_buyer:
         temp_df = concat_df[concat_df['buyer'] == i]
@@ -488,9 +488,9 @@ def run_stan(concat_df, dic,
             para_dic[fit['sampler_param_names'][j]] = fit['sampler_params'][j]
         customer_para[i] = para_dic
 #####################################################################3     
-        cnt1 = cnt1 + 1
-        if cnt1 == 20:
-            break
+        # cnt1 = cnt1 + 1
+        # if cnt1 == 20:
+        #     break
 ##########################################################################33   
     purchase_info_dic = {'customer': customer_name_list,
                           'purchase_cnt': purchase_cnt}
@@ -710,12 +710,14 @@ def cust_to_class(cut_off, purchase_info):
     cut_off.reverse()
 
     quan_cut_off = [round( np.quantile(purchase_cnt, cut_off[i]) ) for i in range(class_cnt+1)]
+    # two different quantile should not have same cut point
+    for k in range(len(quan_cut_off)-1, 1, -1):
+        if quan_cut_off[k] >= quan_cut_off[k-1]:
+            quan_cut_off[k-1] = quan_cut_off[k] + 1
+
     purchase_cnt = np.array(purchase_cnt)
     cust_class_dic = {}
     for i in range(class_cnt):
-        # two different quantile should not have same cut point
-        if quan_cut_off[i] == quan_cut_off[i+1]:
-            quan_cut_off[i+1] = quan_cut_off[i+1] - 1
             
         if i < class_cnt-1:
             bool_vec = np.logical_and(purchase_cnt > quan_cut_off[i+1],

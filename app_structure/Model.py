@@ -40,13 +40,14 @@ def dic_to_table(dic, choose_cnt):
 
 def figure_generate(dic, rate, select_material, choose_cnt):
     # check how many focus_spec is there
-    
+    global ddd, eee, fff, ggg, kkk
     sub = '_mean'
     spec_name = [i.split(sub)[0] for i in rate.columns if sub in i]
-    
+    kkk = rate
     figure_children = []
     rate_df = rate
     multiple_bool = False
+    ggg = choose_cnt
     for i in dic.keys():
         if i != 'ALL':
             # filter rate, preserve customers in current class
@@ -62,11 +63,13 @@ def figure_generate(dic, rate, select_material, choose_cnt):
         if len(spec_name) == 1:
             mean_vec = list(rate[spec_name[0] + '_mean'])[0: choose_cnt]
             sd_vec = list(rate[spec_name[0] + '_sigma'])[0: choose_cnt]
- 
+            ddd = mean_vec
+            eee = sd_vec
             choose_cnt_curr = min(choose_cnt, len(mean_vec))
+            fff = choose_cnt_curr
             data = [mean_vec[j] + sd_vec[j]*np.random.randn(1000) 
                     for j in range(choose_cnt_curr)]
-            label = list(rate['real name'])[0: choose_cnt]
+            label = list(rate['real name'])[0: choose_cnt_curr]
             
             graph = create_distplot(data, 
                                     label, 
