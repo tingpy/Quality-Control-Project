@@ -444,30 +444,61 @@ def update_data_duration(n_clicks, data):
         min_time = datetime.strptime('2000/1/1', '%Y/%m/%d')
         max_time = datetime.now()
         for vec in data:
+            cur_min = datetime.strptime('2000/1/1', '%Y/%m/%d')
+            cur_max = datetime.now()
             select_cnt = 0
             for element in vec:
                 if element['Selected'] == 'Selected':
                     select_cnt = select_cnt + 1
-                    if min_time < datetime.strptime(element['First Date'], '%Y/%m'):
-                        min_time = datetime.strptime(element['First Date'], '%Y/%m')
-                    if max_time > datetime.strptime(element['Last Date'], '%Y/%m'):
-                        max_time = datetime.strptime(element['Last Date'], '%Y/%m')
+                    lb = datetime.strptime(element['First Date'], '%Y/%m')
+                    ub = datetime.strptime(element['Last Date'], '%Y/%m')
+                    # if totally overlap
+                    if cur_min < lb and cur_max > ub:
+                        cur_min = lb
+                        cur_max = ub
+                    # paritally overlap
+                    elif cur_max > ub:
+                        if (cur_min - ub).days <= 31:
+                            cur_min = lb
+                    elif cur_max < ub:
+                        if (lb - cur_max).days <= 31:
+                            cur_max = ub
                         
             if select_cnt == 0:
                 show_warning_unselect = True
-                return show_warning_unselect, show_warning_collide, {}
+                return show_warning_unselect, show_warning_collide, None
+            else:
+                if cur_max < max_time:
+                    max_time = cur_max
+                if cur_min > min_time:
+                    min_time = cur_min
         
         ### should add something here
         if max_time <= min_time:
             show_warning_collide = True
-            return show_warning_unselect, show_warning_collide, {}
+            return show_warning_unselect, show_warning_collide, None
+        
+        print(min_time)
+        print(max_time)
         
         return show_warning_unselect, show_warning_collide, {'First Date': min_time,
                                                              'Last Date': max_time}
     
     raise PreventUpdate
          
+
+@app.callback(Output('show_duration_info', 'children'),
+              Input('data_duration', 'data'))
+
+def update_duration_info(data):
     
+    if data is not None:
+        start = data['First Date'].split('T')[0]
+        end = data['Last Date'].split('T')[0]
+        
+        children = html.P('The selected duration start from ' + start + ' and end in ' + end)
+        
+        return children
 
 # send the message that you have chosen some focus spec
 @app.callback(Output('choose_spec_intermediate', 'children'),
@@ -968,6 +999,8 @@ def update_input_spec(submit_click, dic, method_value, row, column):
                                               stan_result, input_spec,
                                               dic['Mean and Var'], method_value)
         
+        global bbb
+        bbb = {'rate': rate.to_dict(), 'score': score.to_dict()}
         return {'rate': rate.to_dict(), 'score': score.to_dict()}, focus_store
     else:
         raise PreventUpdate
@@ -1050,10 +1083,11 @@ def update_recommendation_system(submit_click, cut_off, info_dic,
                                               info_dic['purchase_info'],
                                               select_material,
                                               choose_cnt)
-        
+
         store_dic = {'by_class': rating_all_class_dic, 'all': rating_all_dic}
-        
+
         print('rating')
+      
         return table_children, figure_children, store_dic
     else:
         raise PreventUpdate
@@ -1119,6 +1153,7 @@ def update_stat_table(n_click, max_val, class_loc,
     
     if n_click % 2 == 0:
         print(n_click)
+
         focus_spec = data['focus']
         basic = ['Company Name', 'Current Rank']
         mean = ['Mean for "' + i + '"' for i in focus_spec]
