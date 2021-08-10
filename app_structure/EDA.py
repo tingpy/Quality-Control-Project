@@ -47,7 +47,7 @@ def create_spec_plot(df, select_spec, table_type, data_type):
             return []
     else:
         if len(select_spec) == 2:
-            plot_df = function.LOT_based_df(df, select_spec, data_type)
+            plot_df = function.LOT_based_df(df, select_spec, data_type, False)
         
             return scatter(plot_df, 
                               x=plot_df.columns[2], # remove 'LOTNO' and 'date'
@@ -148,6 +148,57 @@ def generate_duration_table(df, select_spec):
         )
         
     return children
+
+def generate_time_slider(now):
+    marks_dic = {}
+    for i in range(now.year, datetime.now().year+1):
+        marks_dic[datetime.timestamp(datetime.strptime(str(i)+'/1/1',
+                                                       '%Y/%m/%d'))] = {'label': str(i)}
+        
+    slider = dcc.RangeSlider(
+        id = 'material_slider',
+        min = datetime.timestamp(now),
+        max = datetime.timestamp(datetime.now()),
+        value = [datetime.timestamp(datetime.strptime('2019/1/1','%Y/%m/%d')),
+                 datetime.timestamp(datetime.now())],
+        marks = marks_dic,
+        persistence_type = 'local'
+    )
+    
+    return slider
+
+def generate_line_dropdown(fac_inform):
+    row_component = []
+    for j in fac_inform['line'].keys():
+        print
+        tmp_line = fac_inform['line'][j]
+        tmp_dropdown = dcc.Dropdown(
+                              id={
+                                'type': 'dynamic-dropdown',
+                                'index': j,
+                              },
+                              options=[{'label':k, 'value':k}
+                                       for k in tmp_line],
+                              value=tmp_line,
+                              multi=True)
+        row_component.append(
+            dbc.Row([
+                dbc.Col([html.H5(j)],
+                        style={'width':'10rem'}),
+                dbc.Col([tmp_dropdown],
+                        style={'width':'20rem'}),
+                ])
+            )
+    
+    return row_component
+
+def generate_select_spec_div(select_spec, select_limit):
+    new_div = html.div(
+        id={
+          'type': 'dynamic-div',
+          'index': select_spec,
+        },
+        children=[html.H5()])
     
 
 
@@ -210,107 +261,250 @@ period_selection = dbc.Row([
     )
 ])
 
-material_slider = dbc.Row([
-    dbc.Col([
-        dcc.RangeSlider(
-            id='material_slider',
-            min=2011, 
-            max=int(datetime.now().strftime('%Y')),
-            step=None,
-            marks={
-                2011 : '2011',
-                2016 : '2016',
-                2019 : '2019',
-                2020 : '2020',
-                int(datetime.now().strftime('%Y')) : datetime.now().strftime('%Y')
-            },
-            value=[2019, int(datetime.now().strftime('%Y'))],
-            persistence_type='local',
-        )
+material_slider = html.Div([
+    dbc.Row([
+        dbc.Col([
+            html.Div(id='show_slider_date'),
+        ]),
+        
+        dbc.Col([
+            html.Button('Change first date',
+                        id='min_date_confirm',
+                        n_clicks=0),
+            ]),
+    ]),
+
+    dbc.Row([
+        dbc.Col([
+            html.Div(id='change_date_div',
+                     children=[
+                         dbc.Row([
+                             dbc.Col([
+                                 html.H4('Enter the year you want to start with:')
+                             ]),
+                             
+                             dbc.Col([
+                                 dcc.Input(
+                                     id='input_the_min_date',
+                                     value=2014
+                                 ),
+                             ]),
+                         ]),
+                     ],
+                     style={'display': 'none'})
+            ])
+        ]),
+    
+    dbc.Row([
+        dbc.Col([
+            html.Div(id='material_slider_div',
+                     children=[
+                         generate_time_slider(datetime.strptime('2011/1/1', '%Y/%m/%d'))
+                     ]),
+        ])
     ])
 ])
 
 ## (spec_inform can be refined)
 spec_inform = dbc.Row([
-    dbc.Col(html.Div(id='spec_inform_update')),
+    html.Div([
+        dcc.Tabs(id='spec_inform_and_visual',
+                 value='spec_1',
+                 children=[
+                     dcc.Tab(id='info_tab',
+                             label='SPEC information',
+                             value='spec_1',
+                             children=html.Div([
+                                 dbc.Col(html.Div(id='spec_inform_update')),
+                             ])
+                     ),
+                     dcc.Tab(id='plot_tab',
+                             label='Factory information',
+                             value='spec_2',
+                             children=html.Div([
+                                 # dbc.Row([
+                                 #     dbc.Col([
+                                 #         html.H5('How many SPECs do you want to select?'),
+                                 #         ]),
+                                     
+                                 #      dbc.Col([
+                                 #          dcc.Dropdown(id='spec_plot_cnt',
+                                 #                       options=[{'label':j, 'value':j} 
+                                 #                                for j in range(1,4)],
+                                 #                       value=1),
+                                 #          ]),
+                                 #      ]),
+                                 
+                                 dbc.Row([
+                                     dbc.Col([
+                                         dbc.Row([
+                                             html.Br(),
+                                             
+                                             dbc.Col([
+                                                 html.H5('Factory'),
+                                             ]),
+                                                
+                                             dbc.Col([
+                                                 dbc.Row([
+                                                     dcc.Dropdown(id='factory_inform_dropdown',
+                                                                  multi=True)
+                                                 ]),
+                                             ]),
+                                         ]),
+                                             
+                                        dbc.Row([
+                                                 html.Div(id='select_line_div',
+                                                          style={"overflow": "scroll",
+                                                                 "height": "15rem"}),
+                                                 
+                                                 dbc.Row([
+                                                     dbc.Col([
+                                                         html.Br(),
+                                                         
+                                                         html.H5('QC List'),
+                                                         
+                                                         html.Div(
+                                                             children=[
+                                                                 dcc.RadioItems(id='QC_inform_radio',
+                                                                                labelStyle={'display': 'block'})],
+                                                             style={
+                                                                "overflow": "scroll",
+                                                                "width": "18rem",
+                                                                "height": "10rem",
+                                                                # "padding": "2rem 1rem",
+                                                                "background-color": "#f8f9fa"
+                                                             }),
+                                                      ]),
+                                                     
+                                                     dbc.Col([
+                                                         html.Br(),
+                                                         
+                                                         html.H5('QC Limit'),
+                                                         
+                                                         html.Div(
+                                                             children=[
+                                                                 dcc.RadioItems(id='QC_limit_radio',
+                                                                                labelStyle={'display': 'block'})],
+                                                             style={
+                                                                "overflow": "scroll",
+                                                                "width": "18rem",
+                                                                "height": "10rem",
+                                                                # "padding": "2rem 1rem",
+                                                                "background-color": "#f8f9fa"
+                                                             }),
+                                                      ]),
+                                                 ]),
+                                            ]),
+                                        ]),
+                                             
+                                    dbc.Col([
+                                        html.Div(id='factory_line_table'),
+                                        
+                                        # html.Div(id='multi_select_info_div',
+                                        #          children=[
+                                        #              html.Div(id='multi_select_info_in',
+                                        #                       children=[]),
+                                                     
+                                        #              dbc.Row([
+                                        #                  html.Button('Append New SPEC',
+                                        #                          id='multi_select_confirm_button',
+                                        #                          n_clicks=0),
+                                        #                  ]),
+                                        #              ]),
+                                    ]),
+                                ]),
+                                     
+                                     
+                                dbc.Row([
+                                    dbc.Col([
+                                        html.Div(id='factory_line_graph')
+                                    ]),
+                                ]),
+                           ])       
+                     ),
+                 ])
+        ]),
+
     
-    dbc.Col(
-        html.Div(
-            id='spec_EDA', 
-            children = [
-                html.Br(),
-                
-                dbc.Row([
-                    dbc.Card(
-                        html.H3(
-                            children='Key In The Spec You Want To Visualize',
-                            className="text-center text-light bg-dark"), 
-                        body=True,
-                        color="dark"),
-                ]),
-                
-                html.Br(),
-
-                dbc.Row([
-                    dcc.Dropdown(
-                        id='select_spec_EDA',
-                        multi=True,
-                        style={'background-color': 'white','color' : 'black' ,
-                               'width': '100%','font-weight': '1000'}
-                    )
-                ]),
-                                
-                html.Br(),
-                                
-                dbc.Row([
-                    dbc.Col([
+    dbc.Row(id='spec_EDA_layer', children=[
+        dbc.Col(
+            html.Div(
+                id='spec_EDA', 
+                children = [
+                    html.Br(),
+                    
+                    dbc.Row([
                         dbc.Card(
-                            html.H5(
-                                children='Present Way',
+                            html.H3(
+                                children='Key In The Spec You Want To Visualize',
                                 className="text-center text-light bg-dark"), 
-                                body=True,
-                                color="dark"
-                            ),
-
-                        html.Br(),
-
-                        dcc.RadioItems(
-                            id='table_type',
-                            options=[{'label': i, 'value': i} for i in ['Density Plot', 'Scatter Plot', 'Time Shift Plot']],
-                            value='Density Plot',
-                            style={"padding": "10px", "max-width": "800px", "margin": "auto",
-                                   "flex": "1"},
-                            labelStyle={'display': 'inline-block','margin-right': '7px',
-                                        'font-weight': 300})
+                            body=True,
+                            color="dark"),
                     ]),
-                                
-                    dbc.Col([
-                        dbc.Card(
-                            html.H5(
-                                children='Preprocessing Way',
-                                className="text-center text-light bg-dark"), 
-                                body=True, 
-                                color="dark"),
-                        
-                        html.Br(),
-                        
-                        dcc.RadioItems(
-                            id='data_type',
-                            options=[{'label': i, 'value': i} for i in ['Original', 'Standardized']],
-                            value='Original',
-                            style={"padding": "10px", "max-width": "800px", "margin": "auto",
-                                   "flex": "1"},
-                            labelStyle={'display': 'inline-block','margin-right': '7px',
-                                        'font-weight': 300}
+                    
+                    html.Br(),
+    
+                    dbc.Row([
+                        dcc.Dropdown(
+                            id='select_spec_EDA',
+                            multi=True,
+                            style={'background-color': 'white','color' : 'black' ,
+                                   'width': '100%','font-weight': '1000'}
                         )
                     ]),
-                ]),
-                                
-                dbc.Row([dcc.Graph(id='spec_EDA_graph',
-                                   style={'width': '180vh', 'height': '90vh'})])
-            ]
+                                    
+                    html.Br(),
+                                    
+                    dbc.Row([
+                        dbc.Col([
+                            dbc.Card(
+                                html.H5(
+                                    children='Present Way',
+                                    className="text-center text-light bg-dark"), 
+                                    body=True,
+                                    color="dark"
+                                ),
+    
+                            html.Br(),
+    
+                            dcc.RadioItems(
+                                id='table_type',
+                                options=[{'label': i, 'value': i} for i in ['Density Plot', 'Scatter Plot', 'Time Shift Plot']],
+                                value='Density Plot',
+                                style={"padding": "10px", "max-width": "800px", "margin": "auto",
+                                       "flex": "1"},
+                                labelStyle={'display': 'inline-block','margin-right': '7px',
+                                            'font-weight': 300})
+                        ]),
+                                    
+                        dbc.Col([
+                            dbc.Card(
+                                html.H5(
+                                    children='Preprocessing Way',
+                                    className="text-center text-light bg-dark"), 
+                                    body=True, 
+                                    color="dark"),
+                            
+                            html.Br(),
+                            
+                            dcc.RadioItems(
+                                id='data_type',
+                                options=[{'label': i, 'value': i} for i in ['Original', 'Standardized']],
+                                value='Original',
+                                style={"padding": "10px", "max-width": "800px", "margin": "auto",
+                                       "flex": "1"},
+                                labelStyle={'display': 'inline-block','margin-right': '7px',
+                                            'font-weight': 300}
+                            )
+                        ]),
+                    ]),
+                                    
+                    dbc.Row([dcc.Graph(id='spec_EDA_graph',
+                                       style={'width': '180vh', 'height': '90vh'})])
+                ]
+            )
         )
-    )
+    ]),
 ])
 
 spec_focus_selection = dbc.Row([
@@ -349,7 +543,11 @@ spec_focus_and_confirm = html.Div([
                     'marginLeft': '20px',
                     'float': 'right'
                 }
-            )
+            ),
+            
+            dcc.ConfirmDialog(
+                id='duplicated_LOTNO_warning'
+            ),
         ]),
     ]),
     
@@ -398,8 +596,6 @@ intermediate_layers = dbc.Row([
                  style={'height' : '100%',
                                     'width': '100%','font-weight': '1000','padding': '30px'}),
         html.Div(id='show_freeze_table',style={'height' : '100%','padding': '30px'})
-        # html.Div(id='input_space'),
-        # html.Div(id='show_freeze_table')
     ])
 ])
 

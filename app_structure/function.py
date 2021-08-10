@@ -27,49 +27,51 @@ def isset(var):
     return a
 
 def import_data(data_location):
-    d1 = pd.read_csv(data_location + '\\quality_plastic1.csv',
-                 encoding = 'utf-8')
-    d2 = pd.read_csv(data_location + '\\quality_plastic2.csv',
-                 encoding = 'utf-8')
-    d3 = pd.read_csv(data_location + '\\QC20.csv',
-                 encoding = 'utf-8')
-
-    drop_col_name = ['MG 2', 'MG 1', '工場別', '槽/線別', '參考編號']
-    col_bool1 = []
-    for i in d1.columns.values: col_bool1.append(i not in drop_col_name)
-    d1 = d1.iloc[:, col_bool1]
-    col_bool2 = []
-    for i in d2.columns.values: col_bool2.append(i not in drop_col_name)
-    d2 = d2.iloc[:, col_bool2]
-    col_bool3 = []
-    for i in d3.columns.values: col_bool3.append(i not in drop_col_name)
-    d3 = d3.iloc[:, col_bool3]
+    data_location = 'C:\\Users\\acer\\Desktop\\Chimei\\QC data'
+    data_location = data_location + '\\raw_data'
+    os.chdir(data_location)
     
+    # for spec data
+    drop_col_name = ['MG 2', 'MG 1', '參考編號']
     standard_col_name = ['material', 'LOTNO', 'level', 'spec name', 'spec value',
-                         'date', 'spec limit']
-    d1.columns = standard_col_name
-    d2.columns = standard_col_name
-    d3.columns = standard_col_name
-    spec_inform = pd.concat([d1, d2, d3])
+                          'factory', 'line', 'date', 'spec limit']
+    
+    spec_file = [f for f in listdir('.\\spec') if isfile('.\\spec\\' + f)]
+    spec_inform = []
+    for file in spec_file:
+        spec_tmp = pd.read_csv(data_location + '\\spec\\' + file,
+                                encoding = 'utf-8')
+        for drop_column in drop_col_name:
+            try:
+                spec_tmp = spec_tmp.drop([drop_column], axis=1)
+            except:
+                print(drop_column + '''isn't removed from ''' + file)
+        spec_tmp.columns = standard_col_name
+        spec_inform.append(spec_tmp)
+    
+    spec_inform = pd.concat(spec_inform)
     
     ## import deal data
     # 'deal inform' is the dataframe that stores all deal data
-    d1 = pd.read_csv(data_location + '\\deal1.csv',
-                     encoding = 'utf-8')
-    d2 = pd.read_csv(data_location + '\\deal2.csv',
-                     encoding = 'utf-8')
-    d3 = pd.read_csv(data_location + '\\deal3.csv',
-                     encoding = 'utf-8')
-    deal_inform = pd.concat([d1, d2, d3])
-    
     drop_col_name = ['DN', '交貨', '項目', '貨櫃號碼', 'STATUS', 'ITYPE', 'WERKS', '重量']
-    col_bool1 = []
-    for i in deal_inform.columns.values: col_bool1.append(i not in drop_col_name)
-    deal_inform = deal_inform.iloc[:, col_bool1]
-     
     standard_col_name = ['level', 'shipment NO', 'material', 'LOTNO', 'buyer',
                          'receiver', 'date']
-    deal_inform.columns = standard_col_name
+    
+    deal_file = [f for f in listdir('.\\deal') if isfile('.\\deal\\' + f)]
+    deal_inform = []
+    for file in deal_file:
+        deal_tmp = pd.read_csv(data_location + '\\deal\\' + file,
+                               encoding = 'utf-8')
+        for drop_column in drop_col_name:
+            try:
+                deal_tmp = deal_tmp.drop([drop_column], axis=1)
+            except:
+                print(drop_column + '''isn't removed from ''' + file)
+        deal_tmp.columns = standard_col_name
+        deal_inform.append(deal_tmp)
+     
+    deal_inform = pd.concat(deal_inform)
+
     
     ## variable 'date' from string to time
     deal_inform['date'] = pd.to_datetime(deal_inform['date'])
@@ -107,67 +109,81 @@ def import_data(data_location):
             material_brief[i] = material_brief[i][j:]
     spec_inform['material'] = material_brief
     
-    # information of intermediate(代理商) and customer name
-    intermediate_df = pd.read_csv(data_location + '\\customerID.csv',
-                                  encoding = 'utf-8')
-    customer_df = pd.read_csv(data_location + '\\customer_name.csv',
-                              encoding = 'utf-8')
+    # information of agent(代理商) and customer name
+    agent_file = [f for f in listdir('.\\agent') if isfile('.\\agent\\' + f)]
+    agent_df = []
+    for file in agent_file:
+        agent_tmp = pd.read_csv(data_location + '\\agent\\' + file,
+                                encoding = 'utf-8')
+        agent_df.append(agent_tmp)
+    if(len(agent_df) == 1):
+        agent_df = agent_df[0]
+    else:
+        agent_df = pd.concat(agent_df, axis=1)
+        
+    customer_file = [f for f in listdir('.\\customer') if isfile('.\\customer\\' + f)]
+    customer_df = []
+    for file in customer_file:
+        customer_tmp = pd.read_csv(data_location + '\\customer\\' + file,
+                                   encoding = 'utf-8')
+        customer_df.append(customer_tmp)
+    if(len(customer_df) == 1):
+        customer_df = customer_df[0]
+    else:
+        customer_df = pd.concat(customer_df, axis=1)
     
     # extract the useful information at the dataframe
     string_bool = []
-    for i in intermediate_df['買方客戶']:
+    for i in agent_df['買方客戶']:
         if '合計' not in i:
             string_bool.append(True)
         else:
             string_bool.append(False)
-    intermediate_df = intermediate_df.iloc[string_bool, :]
+    agent_df = agent_df.iloc[string_bool, :]
     
-    return spec_inform, deal_inform, intermediate_df, customer_df
+    return spec_inform, deal_inform, agent_df, customer_df
 
 
-# def LOT_based_df(spec_interest, select_spec, data_type):
-#     LOTNO_unique = spec_interest['LOTNO'].unique()
-#     spec_name_exist = select_spec
-#     reserve_col_name = ['LOTNO', 'date']
-#     if len(select_spec) == 1:
-#         lotno_inform = pd.DataFrame(data = None,
-#                                     columns = reserve_col_name + [spec_name_exist])
+def name_new_csv(time_stamp):
+    year = time_stamp.year
+    month = time_stamp.month
+    date = time_stamp.day
+    
+    return str(year) + '_' + str(month) + '_' + str(date)
+
+# def file_cnt_detect(name):
+#     files = [f for f in listdir(mypath) if isfile(join(mypath, f))]
+#     subs = '_stan_result'
+#     subs2 = '.json'
+#     files = [i for i in files if subs in i]
+#     model_num = [int(i.split(subs)[1].split(subs2)[0]) for i in files]
+    
+#     if model_num == []:
+#         count = 0
 #     else:
-#         lotno_inform = pd.DataFrame(data = None,
-#                                     columns = reserve_col_name + spec_name_exist)
+#         count = max(model_num)
         
-#     row_count = 0
-#     for i in LOTNO_unique:
-#         temp_store = []
-#         temp_store.append(i)
-#         temp_df = spec_interest[spec_interest['LOTNO'] == i]
-#         temp_store.append(temp_df['date'].values[0])
-#         for j in spec_name_exist:
-#             try:
-#                 k = temp_df['spec name'].tolist().index(j)
-#                 temp_store.append(temp_df['spec value'].values[k])
-#             except:
-#                 temp_store.append(None)
-#         lotno_inform.loc[row_count] = temp_store
-#         row_count = row_count + 1
-    
-#     lotno_inform = lotno_inform.dropna(axis = 0)
-#     if data_type == 'Standardized':
-#         for i in range(len(reserve_col_name), lotno_inform.shape[1]):
-#             lotno_inform.iloc[:, i] = preprocessing.scale(
-#                 lotno_inform.iloc[:, i].values)
-            
-#     return lotno_inform
+#     count = count + 1
 
 
-def LOT_based_df(spec_interest, select_spec, data_type):
+def LOT_based_df(spec_interest, select_spec, data_type, return_delete_inform):
     group_obj = spec_interest.groupby('spec name') 
     store_series = []
+    store_duplicate_LOTNO = []
     df_date = pd.DataFrame(data = None, columns = ['date'])
     for k, v in group_obj:
+        print(k)
         temp_series = pd.Series(v['spec value'].tolist(), name=k)
         temp_series.index = v['LOTNO']
         temp_series = temp_series.dropna()
+        
+        # remove the duplicated LOTNO
+        temp_dup = list(temp_series.loc[temp_series.index.duplicated(),].index)
+        temp_series = temp_series.drop(temp_dup)
+        for j in temp_dup:
+            if j not in store_duplicate_LOTNO:
+                store_duplicate_LOTNO.append(j)
+                
         store_series.append(temp_series)
         
         temp_date_df = pd.DataFrame({'date': v['date'].tolist()}, 
@@ -175,31 +191,35 @@ def LOT_based_df(spec_interest, select_spec, data_type):
         temp_date_df = temp_date_df[~temp_date_df.index.duplicated(keep='first')]
         df_date = df_date.combine_first(temp_date_df)
         
-    df = pd.concat(store_series, axis = 1)
 
+    df = pd.concat(store_series, axis = 1)
+    
     df = df.sort_index(ascending=True)
     df_date = df_date.sort_index(ascending=True)
     lotno_inform = pd.concat([df_date, df], axis=1)
     lotno_inform.insert(loc=0, column='LOTNO', value=lotno_inform.index)
     lotno_inform.index = [i for i in range(0, lotno_inform.shape[0])]
-    
+
     if isinstance(select_spec, list):
         reserve_col_name = ['LOTNO', 'date'] + select_spec
     else:
         reserve_col_name = ['LOTNO', 'date'] + [select_spec]
-    
+
     drop_col = []
     for i in lotno_inform.columns:
         if i not in reserve_col_name:
             drop_col.append(i)
     lotno_inform = lotno_inform.drop(drop_col, axis=1)
     
+    if return_delete_inform is True:
+        return lotno_inform, store_duplicate_LOTNO
+    
     lotno_inform = lotno_inform.dropna(axis = 0)
     if data_type == 'Standardized':
         for i in range(2, lotno_inform.shape[1]):
             lotno_inform.iloc[:, i] = preprocessing.scale(
                 lotno_inform.iloc[:, i].values)
-    
+            
     return lotno_inform
     
 
@@ -260,6 +280,7 @@ def corr_var(focus_spec_name, lot_based_df):
                 other_bool = lot_based_df.columns == j
                 other_spec_value = list(lot_based_df.loc[:, other_bool].T.iloc[0,:])
                 other_na_bool = np.isnan(other_spec_value)
+                
                 corr_value = pearsonr(np.array(focus_spec_value)[~np.logical_or(focus_na_bool,other_na_bool)],
                                       np.array(other_spec_value)[~np.logical_or(focus_na_bool,other_na_bool)])
                 if np.isnan(corr_value[0]):
@@ -359,7 +380,7 @@ def spec_deal_concat(material, spec, deal, dic, type):
     reserve_deal_bool = [i in unique_lotno for i in deal_df['LOTNO'].values]
     deal_df = deal_df.loc[reserve_deal_bool, :]
     
-    spec_df = LOT_based_df(spec_df, reserve_spec, 'Original')
+    spec_df = LOT_based_df(spec_df, reserve_spec, 'Original', False)
     spec_df = spec_df.dropna(axis = 0)
     
     mean_vec = []
@@ -398,7 +419,6 @@ def spec_deal_concat(material, spec, deal, dic, type):
     return df_model, mean_var_dic
 
 
-#def generate_mean_var_df(df):
     
 
 quality_control = '''
@@ -468,7 +488,11 @@ def run_stan(concat_df, dic,
 ##################################################################
     # cnt1 = 0
 ##################################################################
+    global ccc
+    ccc = []
     for i in unique_buyer:
+        if 'TW' in i:
+            continue
         temp_df = concat_df[concat_df['buyer'] == i]
         
         # print(len(temp_df))
@@ -479,19 +503,23 @@ def run_stan(concat_df, dic,
         stan_data = {"Nt": len(temp_df),
                       "Ns": len(reserve_spec),
                       "spec": temp_df[reserve_spec]}
-        fit = posterior.vb(data = stan_data, 
-                            iter = iter_cnt,
-                            output_samples = output_cnt)
+        try:
+            fit = posterior.vb(data = stan_data, 
+                                iter = iter_cnt,
+                                output_samples = output_cnt)
         
-        para_dic = {}
-        for j in range(0, len(fit['sampler_param_names'])):
-            para_dic[fit['sampler_param_names'][j]] = fit['sampler_params'][j]
-        customer_para[i] = para_dic
-#####################################################################3     
+            para_dic = {}
+            for j in range(0, len(fit['sampler_param_names'])):
+                para_dic[fit['sampler_param_names'][j]] = fit['sampler_params'][j]
+            customer_para[i] = para_dic
+        except:
+            print(i + ' will not output result.')
+            ccc.append(i)
+######################################################################  
         # cnt1 = cnt1 + 1
         # if cnt1 == 20:
         #     break
-##########################################################################33   
+######################################################################   
     purchase_info_dic = {'customer': customer_name_list,
                           'purchase_cnt': purchase_cnt}
     
@@ -632,6 +660,7 @@ def rating_system(input_spec_value, # the spec information of current product
                   mean_and_sd,
                   ranking_method):
     
+    
     rating_df = pd.DataFrame(columns=['customer id'] + [i+j for i in focus_spec_name for j in ['_mean', '_sigma']] + [i+'_score' for i in focus_spec_name])
     score_df = pd.DataFrame(columns=['customer id', 'score'])
     
@@ -664,6 +693,7 @@ def rating_system(input_spec_value, # the spec information of current product
                     mean_array = mean_array + np.array(customer_para[i]['A['+str(spec_index+1)+','+str(current_spec_index)+']'])*input_value_sd[k]
                 create_cnt = create_cnt + 1
             
+            mean_array = mean_array + np.array(customer_para[i]['A_mu['+str(spec_index+1)+']'])
             mean_value = np.mean(mean_array)
             sigma_value = np.mean(np.array(customer_para[i]['sigma['+str(spec_index+1)+']']))
             
