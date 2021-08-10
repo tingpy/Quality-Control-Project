@@ -14,6 +14,7 @@ import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 import dash_table
 from dash_table.Format import Format
+import plotly.express as px
 
 
 import pandas as pd
@@ -76,19 +77,31 @@ app.layout = html.Div([
              children=[
                   html.Div(id='intermediate_layer'),
                   html.Div(id='intermediate_layer2'),
+                  dcc.Store(id='factory_inform_store',
+                            storage_type='memory'),
                   dcc.Store(id='intermediate_layer3',
                             storage_type='session'),
+                  dcc.Store(id='intermediate_layer3_2',
+                            storage_type='memory'),
                   dcc.Store(id='intermediate_layer4',
                             storage_type='session'),
                   dcc.Store(id='intermediate_layer5',
                             storage_type='session'),
                   dcc.Store(id='unique_material',
                             storage_type='session'),
+                  dcc.Store(id='duration_record',
+                            storage_type='memory'),
+                  dcc.Store(id='multiple_spec_remove_cnt',
+                            storage_type='memory'),
+                  dcc.Store(id='tmp_factory_dic',
+                            storage_type='memory'),
                   dcc.Store(id='main_location',
                             storage_type='session'),
                   dcc.Store(id='data_duration',
                             storage_type='memory'),
                   dcc.Store(id='previous_table',
+                            storage_type='memory'),
+                  dcc.Store(id='duplicated_LOTNO',
                             storage_type='memory'),
                   dcc.Store(id='info_store1',
                             storage_type='session'),
@@ -210,101 +223,52 @@ def show_data_table(value):
     return deal_children, spec_children, agent_children, customer_children
 
 # import new deal data
-@app.callback(Output('output_deal_inform', 'children'),
-              [Input('upload_data_deal', 'contents')],
-              [State('upload_data_deal', 'filename'),
-               State('upload_data_deal', 'last_modified')])
-def update_output_deal(list_of_contents, list_of_names, list_of_dates):
-    children = [dbc.Row(html.H4('The example csv format:')),
-                dbc.Row(dash_table.DataTable(
-                        data=deal.tail(10).to_dict('records'),
-                        columns=[{'name': i, 'id': i} for i in deal.columns]))]
-    if list_of_contents is not None: 
-       try:
-           children = [
-           Import_New_Data.parse_contents(c, n, d, deal, 'deal') for c, n, d in
-           zip([list_of_contents], [list_of_names], [list_of_dates])]
-       except:
-           children = [
-           Import_New_Data.parse_contents(c, n, d, deal, 'deal') for c, n, d in
-           zip(list_of_contents, list_of_names, list_of_dates)]
+for i in ['deal', 'spec', 'agent', 'customer']:
+    @app.callback(Output('output_'+ i +'_inform', 'children'),
+                  [Input('upload_data_'+ i, 'contents')],
+                  [State('upload_data_'+ i, 'filename'),
+                   State('upload_data_'+ i, 'last_modified')])
+    def update_output_deal(list_of_contents, list_of_names, list_of_dates, i=i):
+        children = [dbc.Row(html.H4('The example csv format:')),
+                    dbc.Row(dash_table.DataTable(
+                            data=eval(i).tail(10).to_dict('records'),
+                            columns=[{'name': j, 'id': j} for j in eval(i).columns]))]
+        
+        if list_of_contents is not None: 
+            children = []
+            try:
+                for c, n, d in zip([list_of_contents], [list_of_names], [list_of_dates]):
+                    tmp_child, new_df = Import_New_Data.parse_contents(c, n, d, eval(i), i)
+                    
+                    children.append(tmp_child)
+                    
+                    globals()['import_' + i] = new_df
+        
+            except:
+               for c, n, d in zip(list_of_contents, list_of_names, list_of_dates):
+                   tmp_child, new_df = Import_New_Data.parse_contents(c, n, d, eval(i), i)
+                   
+                   children.append(tmp_child)
+                    
+                   globals()['import_' + i] = new_df
+           
+        return children
 
-    return children
-
-# import new spec data
-@app.callback(Output('output_spec_inform', 'children'),
-              [Input('upload_data_spec', 'contents')],
-              [State('upload_data_spec', 'filename'),
-               State('upload_data_spec', 'last_modified')])
-def update_output_spec(list_of_contents, list_of_names, list_of_dates):
-    children = [dbc.Row(html.H4('The example csv format:')),
-                dbc.Row(dash_table.DataTable(
-                        data=spec.tail(10).to_dict('records'),
-                        columns=[{'name': i, 'id': i} for i in spec.columns]))]
-    if list_of_contents is not None: 
-        try:
-            children = [
-            Import_New_Data.parse_contents(c, n, d, spec, 'spec') for c, n, d in
-            zip([list_of_contents], [list_of_names], [list_of_dates])]
-        except:
-            children = [
-            Import_New_Data.parse_contents(c, n, d, spec, 'spec') for c, n, d in
-            zip(list_of_contents, list_of_names, list_of_dates)]
-            
-    return children
-
-# import new agent data
-@app.callback(Output('output_agent_inform', 'children'),
-          [Input('upload_data_agent', 'contents')],
-          [State('upload_data_agent', 'filename'),
-            State('upload_data_agent', 'last_modified')])
-def update_output_agent(list_of_contents, list_of_names, list_of_dates):
-    children = [dbc.Row(html.H4('The example csv format:')),
-                dbc.Row(dash_table.DataTable(
-                        data=agent.tail(10).to_dict('records'),
-                        columns=[{'name': i, 'id': i} for i in agent.columns]))]
-    if list_of_contents is not None: 
-        try:
-            children = [
-            Import_New_Data.parse_contents(c, n, d, agent, 'agent') for c, n, d in
-            zip([list_of_contents], [list_of_names], [list_of_dates])]
-        except:
-            children = [
-            Import_New_Data.parse_contents(c, n, d, agent, 'agent') for c, n, d in
-            zip(list_of_contents, list_of_names, list_of_dates)]
-            
-    return children
-
-# import new customer data
-@app.callback(Output('output_customer_inform', 'children'),
-          [Input('upload_data_customer', 'contents')],
-          [State('upload_data_customer', 'filename'),
-            State('upload_data_customer', 'last_modified')])
-def update_output(list_of_contents, list_of_names, list_of_dates):
-    children = [dbc.Row(html.H4('The example csv format:')),
-                dbc.Row(dash_table.DataTable(
-                        data=customer.tail(10).to_dict('records'),
-                        columns=[{'name': i, 'id': i} for i in customer.columns]))]
-    if list_of_contents is not None: 
-        try:
-            children = [
-            Import_New_Data.parse_contents(c, n, d, customer, 'customer') for c, n, d in
-            zip([list_of_contents], [list_of_names], [list_of_dates])]
-        except:
-            children = [
-            Import_New_Data.parse_contents(c, n, d, customer, 'customer') for c, n, d in
-            zip(list_of_contents, list_of_names, list_of_dates)]
-            
-    return children
 
 for i in ['deal', 'spec', 'agent', 'customer']:
     @app.callback([Output(i + '_concat_df_button', 'n_clicks'),
                     Output(i + '_concat_table', 'children'),
                     Output(i + '_table_div', 'style')],
-                  [Input(i + '_concat_df_button', 'n_clicks')])
+                   Input(i + '_concat_df_button', 'n_clicks'),
+                   State('main_location', 'data'))
     
-    def update_tables(n_clicks):
+    def update_tables(n_clicks, main_loc, i=i):
         if n_clicks > 0:
+            # save new import data
+            new_name = function.name_new_csv(datetime.now())
+            os.chdir(main_loc + '//raw_data//' + i)
+            eval('import_' + i).to_csv('new_' + i + '_' + new_name + '.csv',
+                                       index=False)
             globals()[i] = pd.concat([eval(i), eval('import_' + i)], axis=0)
             
             children = [
@@ -341,49 +305,293 @@ def create_folder(select_material, loc):
   
     return select_material
 
+@app.callback(Output('material_slider_div', 'children'),
+              [Input('input_the_min_date', 'value'),
+               Input('min_date_confirm', 'n_clicks')])
+
+def change_the_min_for_slider(year, click):
+    if click != 0:
+        if click % 2 == 0:
+            now1 = datetime.strptime(str(year)+'/1/1', '%Y/%m/%d') 
+            return EDA.generate_time_slider(now1)
+
+    raise PreventUpdate
+
+
+@app.callback(Output('change_date_div', 'style'),
+              Input('min_date_confirm', 'n_clicks'))
+
+def show_change_date(click):
+    if click != 0:
+        if  click % 2 == 1:
+            return {'display': 'block'}
+        else:
+            return {'display': 'none'}
+    else:
+        raise PreventUpdate
+
+
+@app.callback([Output('show_slider_date', 'children'),
+                Output('duration_record', 'data')],
+              Input('material_slider', 'value'))
+
+def update_slider_date_info(select_date):
+    begin = datetime.fromtimestamp(select_date[0])
+    last = datetime.fromtimestamp(select_date[1])
+    store_data = {'begin': begin,
+                  'last': last}
+    children = [html.H5('The duration of ' + begin.strftime('%Y/%m/%d') +
+                        ' to ' + last.strftime('%Y/%m/%d') + ' has been secured.')]
+    
+    return children, store_data
+
+
 # material dropdown
 @app.callback([Output('spec_inform_update', 'children'),
                Output('select_spec_EDA', 'options'),
                Output('select_spec_EDA', 'value'),
                Output('focus_spec_var', 'children'),
-               Output('intermediate_layer', 'value')],
+               Output('intermediate_layer', 'value'),
+               Output('factory_inform_store', 'data')],
               [Input('material_dropdown', 'value'),
-               Input('material_slider', 'value')])
+               Input('duration_record', 'data')])
 
 def update_spec_info(select_material, select_date):
-    df = spec[spec['material'] == select_material]
-    unique_spec = df['spec name'].unique()
+    if select_date is not None:
+        df = spec[spec['material'] == select_material]
+        unique_spec = df['spec name'].unique()
+        
+        spec_df = pd.DataFrame(columns=['Spec Name', 'First Day', 'Last Day'])
+        row_cnt = 0
+        for i in unique_spec:
+            temp_df = df[df['spec name'] == i]
+            spec_df.loc[row_cnt] = [i, temp_df['date'].min(), temp_df['date'].max()]
+            row_cnt = row_cnt + 1
+        
+        spec_df = spec_df.sort_values('Last Day', ascending=False)
+        
+        end_date = select_date['last']
+        end_bool = (spec_df['Last Day'] < end_date).values
+        begin_date = select_date['begin']
+        begin_bool = np.logical_and((spec_df['First Day'] < begin_date).values,
+                                    (spec_df['Last Day'] > begin_date).values)
+        
+        
+        spec_df = spec_df.loc[np.logical_and(end_bool, begin_bool),:]
+        
+        # return information about factory and lines
+        df = df.loc[np.logical_and(df['date'] > begin_date, df['date'] < end_date), :]
+        
+        uni_factory = list(df['factory'].unique())
+        uni_factory.sort(reverse=False)
+        uni_line = {}
+        for l in uni_factory:
+            tmp_line_list = list(df[df['factory'] == l]['line'].unique())
+            tmp_line_list.sort(reverse=False)
+            uni_line[l] = tmp_line_list
+        factory_line_data = {'factory': uni_factory,
+                             'line': uni_line}
+        
+        # for spec_inform_update    
+        children = dash_table.DataTable(
+                      data=spec_df.to_dict('records'),
+                      columns=[{'name': i, 'id': i} for i in spec_df.columns])
+        
+        alive_spec = spec_df['Spec Name'].values
+        options = [{'label': i, 'value': i} for i in alive_spec]
+        
+        # for focus_spec_var
+        children2 = EDA.create_focus_spec_dropdown(select_material, options)
+        
+        return children, options, alive_spec[0], children2, alive_spec, factory_line_data
+    else:
+        raise PreventUpdate
+        
+
+@app.callback([Output('QC_inform_radio', 'options'),
+               Output('factory_inform_dropdown', 'options'),
+               Output('factory_inform_dropdown', 'value')],
+              [Input('intermediate_layer', 'value'),
+               Input('factory_inform_store', 'data')])
+
+def update_QC_inform_radio(qc_inform, fac_inform):
+    if qc_inform is not None and fac_inform is not None:
+        qc_inform.sort(reverse=False)
+        qc_list = [{'label':' ' + i, 'value':i} for i in qc_inform]
+        fac_list = [{'label':' ' + j, 'value':j} for j in fac_inform['factory']]
+            
+        return qc_list, fac_list, fac_inform['factory']
     
-    spec_df = pd.DataFrame(columns=['Spec Name', 'First Day', 'Last Day'])
-    row_cnt = 0
-    for i in unique_spec:
-        temp_df = df[df['spec name'] == i]
-        spec_df.loc[row_cnt] = [i, temp_df['date'].min(), temp_df['date'].max()]
-        row_cnt = row_cnt + 1
+    raise PreventUpdate
+ 
+
+# create the line dropdown for each factory
+@app.callback(Output('select_line_div', 'children'),
+              [Input('factory_inform_dropdown', 'value'),
+               Input('factory_inform_store', 'data')])
+
+def update_line_dropdown(value, fac_data):
+    if fac_data is not None:
+        alive_line = {}
+        for i in value:
+            alive_line[i] = fac_data['line'][i]
+        children = EDA.generate_line_dropdown({'factory': value,
+                                               'line': alive_line})
+        return children
+    else:
+        raise PreventUpdate
+        
+
+# select the limit for the select spec
+@app.callback([Output('QC_limit_radio', 'options'),
+               Output('QC_limit_radio', 'value')],
+              [Input('material_dropdown', 'value'),
+               Input('QC_inform_radio', 'value'),
+               Input('duration_record', 'data')])
+
+def update_exist_limit(select_material, select_spec, duration_info):
     
-    spec_df = spec_df.sort_values('Last Day', ascending=False)
+    if select_spec is not None:
+        tmp_df = spec.query('material == "'+ select_material +
+                            '" and `spec name` == "'+ select_spec +'"')
+        tmp_df = tmp_df.query('date <= "'+ duration_info['last'].split('T')[0] + 
+                              '" and date >= "'+ duration_info['begin'].split('T')[0] +'"')
+        exist_limit = list(tmp_df['spec limit'].unique())
+        start_date = []
+        end_date = []
+        for i in range(0,len(exist_limit)):
+            tmp_date_df = tmp_df[tmp_df['spec limit'] == exist_limit[i]]
+            start_date.append(tmp_date_df['date'].min().strftime('%Y/%m/%d'))
+            end_date.append(tmp_date_df['date'].max().strftime('%Y/%m/%d'))
+        
+        limit_list = [{'label':' ' + j + '\n(' + start_date[i] + ' ~ ' + end_date[i] + ')', 'value':j} 
+                      for i,j in enumerate(exist_limit)]
+        
+        ret_val = exist_limit[0]
+        if len(limit_list) > 1:
+            limit_list = [{'label':' ALL', 'value':'ALL'}] + limit_list
+            ret_val = 'ALL'
+        
+        return limit_list, ret_val
     
-    end_date = datetime(select_date[1]+1, 1, 1)
-    end_bool = (spec_df['Last Day'] < end_date).values
-    begin_date = datetime(select_date[0]-1, 12, 31)
-    begin_bool = np.logical_and((spec_df['First Day'] < begin_date).values,
-                                (spec_df['Last Day'] > begin_date).values)
+    raise PreventUpdate
     
+
+# @app.callback([Output('multi_select_confirm_button', 'style'),
+#                Output('multi_select_material', 'data')],
+#               [Input('multi_select_info_in', 'children'),
+#                Input('multi_select_confirm_button', 'n_clicks')],
+#               State('multiple_spec_remove_cnt', 'data'))
+
+# def update_button_display(child, n_click, remove_cnt):
     
-    spec_df = spec_df.loc[np.logical_and(end_bool, begin_bool),:]
+#     if 
+
+# @app.callback(Output('multi_select_info_in', 'children'),
+#               [Input('spec_plot_cnt', 'value'),
+#                Input('QC_inform_radio', 'value'),
+#                Input('QC_limit_radio', 'value'),
+#                Input('multi_select_confirm_button', 'n_clicks')],
+#               State('multi_select_info_in', 'children'))
+
+# def update_multi_select_info_div(spec_cnt, select_spec, select_limit,
+#                                  n_click, cur_child):
     
-    # for spec_inform_update    
-    children = dash_table.DataTable(
-                  data=spec_df.to_dict('records'),
-                  columns=[{'name': i, 'id': i} for i in spec_df.columns])
+#     if n_click > len(cur_child):
+        
     
-    alive_spec = spec_df['Spec Name'].values
-    options = [{'label': i, 'value': i} for i in alive_spec]
-    
-    # for focus_spec_var
-    children2 = EDA.create_focus_spec_dropdown(select_material, options)
-    
-    return children, options, alive_spec[0], children2, alive_spec
+        
+
+@app.callback([Output('factory_line_table', 'children'),
+               Output('factory_line_graph', 'children'),
+               Output('factory_line_table', 'style'),
+               Output('factory_line_graph', 'style')],
+              [Input('material_dropdown', 'value'),
+                Input('QC_inform_radio', 'value'),
+                Input('duration_record', 'data'),
+                Input('QC_limit_radio', 'value'),
+                Input('factory_inform_dropdown', 'value'),
+                Input({'type':'dynamic-dropdown', 'index': ALL}, 'value')])
+
+def update_factory_line_table(select_material, select_spec, duration_info,
+                              select_limit, select_factory, select_line):
+
+    if select_spec is not None and select_limit is not None:
+        tmp_df = spec.query('material == "'+ select_material +
+                            '" and `spec name` == "'+ select_spec +'"')
+        tmp_df = tmp_df.query('date <= "'+ duration_info['last'].split('T')[0] + 
+                              '" and date >= "'+ duration_info['begin'].split('T')[0] +'"')
+        if select_limit != 'ALL':
+            tmp_df = tmp_df.query('`spec limit` == "'+ select_limit +'"')
+        
+        df_list = []
+        row_cnt = 0
+        record_df_col = ['Factory', 'Line', 'Average', 'Count']
+        record_df = pd.DataFrame(columns=record_df_col)
+
+        for i in range(0, len(select_factory)):
+            sub_df = tmp_df.query('factory == "'+ select_factory[i] +'"')
+            line_list = list(sub_df['line'].unique())
+            for j in line_list:
+                if j not in select_line[i]:
+                    sub_df = sub_df.drop(sub_df[sub_df['line'] == j].index)
+                line_df = sub_df[sub_df['line'] == j]
+                record_df.loc[row_cnt] = [select_factory[i], j,
+                                          round(np.mean(line_df['spec value']),2),
+                                          line_df.shape[0]]
+                row_cnt = row_cnt + 1
+            df_list.append(sub_df)
+            
+            
+        child_table = [dbc.Row([
+                        dash_table.DataTable(
+                            data = record_df.to_dict('records'),
+                            columns = [{'id': c, 'name': c} for c in record_df_col],
+                            style_data_conditional=[
+                                {
+                                    'if': {'row_index': 'odd'},
+                                    'backgroundColor': 'rgb(248, 248, 248)'
+                                }
+                            ],
+                            style_as_list_view=True,
+                        )
+                    ])]
+        
+        table_style = {"overflow": "scroll",
+                       "width": "40rem",
+                       "height": "30rem",
+                       "padding": "2rem 1rem",
+                       "background-color": "#f8f9fa"}
+
+        df = pd.concat(df_list, axis=0)
+        df['combine'] = df['factory'] + ['_' for i in range(0,df.shape[0])] + df['line']
+        fig = px.line(df, x="date", y="spec value", color='combine')
+        for f in df['factory'].unique():
+            fig_df = df[df['factory'] == f]
+            fig.add_scatter(x = fig_df['date'], y = fig_df['spec value'],
+                            name = f+'_total')
+        
+        combine_to_hide = list(df['combine'].unique())
+        fig.for_each_trace(lambda trace: trace.update(visible="legendonly") 
+                   if trace.name in combine_to_hide else ())
+        
+        fig.update_layout(legend_traceorder="reversed")
+        
+        child_graph = [dbc.Row([
+            dcc.Graph(id='combine_graph',
+                      figure=fig)
+            ])
+        ]
+        
+        graph_style = {"width": "80rem",
+                       "padding": "2rem 1rem",
+                       "background-color": "#f8f9fa"}
+            
+        return child_table, child_graph, table_style, graph_style
+        
+    raise PreventUpdate
+
+
 
 # update the graph for the selected spec
 @app.callback(Output('spec_EDA_graph', 'figure'),
@@ -402,8 +610,6 @@ def update_spec_graph(select_material, select_spec, table_type, data_type):
 @app.callback(Output('duration_table', 'children'),
               [Input('material_dropdown', 'value'),
                Input('choose_focus_spec', 'value')])
-# ,
-#               prevent_initial_call = True)
 
 def show_select_duration_table(select_material, select_spec):
     
@@ -478,9 +684,6 @@ def update_data_duration(n_clicks, data):
             show_warning_collide = True
             return show_warning_unselect, show_warning_collide, None
         
-        print(min_time)
-        print(max_time)
-        
         return show_warning_unselect, show_warning_collide, {'First Date': min_time,
                                                              'Last Date': max_time}
     
@@ -522,7 +725,9 @@ max_var_cnt = 3
 
 # select variable that will be put into model
 @app.callback([Output('intermediate_layer3', 'data'),
-               Output('intermediate_layer3', 'value')],
+               Output('intermediate_layer3_2', 'data'),
+               Output('duplicated_LOTNO_warning', 'message'),
+               Output('duplicated_LOTNO', 'data')],
               [Input('material_dropdown', 'value'),
                 Input('choose_focus_spec', 'value'),
                 Input('intermediate_layer', 'value'),
@@ -533,13 +738,16 @@ def update_input_var(select_material, focus_spec, exist_spec, n_clicks,
                       duration, max_var_cnt = max_var_cnt):
     
     if n_clicks > 0 and len(duration) == 2:
-        print('cor_df')
+        message_str = ''
+        
         df = spec[spec['material'] == select_material]
         df = df[df['date'] >= duration['First Date']]
         df = df[df['date'] <= duration['Last Date']]
-        lot_df = function.LOT_based_df(df, exist_spec, 'Original')
-        lot_df = lot_df.drop(lot_df.columns[0:2], axis=1)
+ 
+        lot_df, delete_LOT = function.LOT_based_df(df, exist_spec, 'Original', True)
         
+        lot_df = lot_df.drop(lot_df.columns[0:2], axis=1)
+ 
         cor_df = function.corr_var(focus_spec, lot_df)
         cor_df = cor_df.T
         input_var_dic = function.recommend_var(cor_df, max_var_cnt)
@@ -548,10 +756,27 @@ def update_input_var(select_material, focus_spec, exist_spec, n_clicks,
             json.dump(input_var_dic, file)
         
         cor_df.to_csv('cor_df.csv')
+        
+        # return the delete information
+        if len(delete_LOT) > 0:
+            message_str = 'There are some duplicated LOTNO in the raw files. The' + \
+            'duplicated LOTNO are as follow:\n ' + ', '.join(delete_LOT) + '. ' + '\nPlease check the raw file.' + \
+            '''The system will delete these data automatically if there's no further action taken.'''
             
-        return 'input_var_dic.json', 'cor_df.csv, input_var_dic.json'
+        return 'input_var_dic.json', 'cor_df.csv, input_var_dic.json', message_str, delete_LOT
     else:
         raise PreventUpdate
+        
+
+@app.callback(Output('duplicated_LOTNO_warning', 'displayed'),
+              Input('duplicated_LOTNO', 'data'))
+def display_confirm(value):
+    if value is not None:
+        if len(value) != 0:
+            return True
+        
+    return False
+        
 
 # return the dcc.Input for each focus spec
 @app.callback([Output('input_space', 'children'),
@@ -578,7 +803,7 @@ def update_show_input_var(dic_name, duration, n_clicks):
 # pattern-matching callback, obtain the renew_variable and return new suggestion
 @app.callback(Output({'type': 'filter-input', 'index': ALL}, 'value'),
               [Input('renew_variable_button', 'n_clicks'),
-               Input('intermediate_layer3', 'value')],
+               Input('intermediate_layer3_2', 'data')],
               State({'type': 'filter-input', 'index': ALL}, 'value'),
               prevent_initial_call = True)
 
@@ -970,7 +1195,8 @@ def update_input_spec_inform(timestamp, cur_data, dic_info, pre_data):
     
     return input_spec_inform_output, previous_table_output
 
-
+ddd = 0
+eee = 0
 @app.callback([Output('rate_and_score_info', 'data'),
                Output('focus_input_value_store', 'data')],
               [Input('submit_spec', 'n_clicks'),
@@ -994,13 +1220,11 @@ def update_input_spec(submit_click, dic, method_value, row, column):
         sd_value = [dic['Mean and Var']['sd'][i] for i in focus_index]
         focus_store = {'spec name': focus_spec, 'value': focus_input_value,
                        'mean': mean_value ,'sd': sd_value}
-        
+                  
         rate, score = function.rating_system(input_spec_value, focus_spec,
                                               stan_result, input_spec,
                                               dic['Mean and Var'], method_value)
         
-        global bbb
-        bbb = {'rate': rate.to_dict(), 'score': score.to_dict()}
         return {'rate': rate.to_dict(), 'score': score.to_dict()}, focus_store
     else:
         raise PreventUpdate
@@ -1155,7 +1379,7 @@ def update_stat_table(n_click, max_val, class_loc,
         print(n_click)
 
         focus_spec = data['focus']
-        basic = ['Company Name', 'Current Rank']
+        basic = ['Company Name', 'Current Rank', 'Purchase Count']
         mean = ['Mean for "' + i + '"' for i in focus_spec]
         ratio = ['Under Ratio for "' + i + '"' for i in focus_spec]
         if len(focus_spec) > 1:
